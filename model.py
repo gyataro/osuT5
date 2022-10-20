@@ -53,7 +53,7 @@ class Transformer(nn.Module):
         """
         :param src: source sequence (batch size, seq. length, d_spectrogram)
         :param tgt: target sequence (batch size, seq. length)
-        :return output: raw output for predicting the next token in sequence (batch size, n_token)
+        :return output: softmax distribution over a discrete vocabulary of events (batch size, seq. length, n_token)
         """
         src = self.src_embedder(src)
         src = self.pos_encoder(src)
@@ -64,7 +64,7 @@ class Transformer(nn.Module):
             src, tgt, tgt_mask=tgt_mask, tgt_key_padding_mask=tgt_pad_mask
         )
         output = self.linear(output)
-        return output
+        return F.log_softmax(output, dim=-1)
 
     def init_weights(self):
         """
