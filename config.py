@@ -10,6 +10,6 @@ def load(path=CONFIG_PATH):
     try:
         config = yaml.safe_load(open(path))
     except Exception as error:
-        logging.exception("failed to load config")
-    logging.info("loaded config from:", path)
+        logging.exception(f"failed to load config, reason: {error}")
+    logging.info(f"loaded config from: {path}")
     return config

@@ -1,12 +1,13 @@
 preprocess:
   sample_rate: 16000
-  fft_length: 2048
-  hop_length: 160
-  mel_bins: 512
-  log_scale: True
+  hop_length: 128
+  n_fft: 2048
+  n_mel: 512
+  n_src_seq_len: 512
+  n_tgt_seq_len: 256
+
 model:
   d_model: 512
-  n_token: 256
   n_encoder_layer: 8
   n_decoder_layer: 8
   n_head: 6
