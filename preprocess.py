@@ -1,15 +1,12 @@
-import numpy as np
-import numpy.typing as npt
-
-import config
-from tokenizer import Event, EventType
+from event import Event, EventType
 
 
 def parse_osu(path: str) -> tuple[list[list[Event]], list[int]]:
     """
     parse an .osu beatmap, each hit object is parsed into a list of Event objects
     :param chart: path to an .osu file.
-    :return: list Event object lists, and their corresponding event times
+    :return events: list of Event object lists
+    :return event_times: corresponding event times of Event object lists in miliseconds
 
     example:
     64,80,11000,1,0                                       -> circle
@@ -118,8 +115,8 @@ def parse_slider(elements: list[str]) -> tuple[list[Event], int]:
 
     for curve_point in curve[1:]:
         curve_point = curve_point.split(":")
-        curve_x = curve_point[0]
-        curve_y = curve_point[1]
+        curve_x = abs(int(curve_point[0]))
+        curve_y = abs(int(curve_point[1]))
         events.append(Event(EventType.POS_X, curve_x))
         events.append(Event(EventType.POS_Y, curve_y))
 
