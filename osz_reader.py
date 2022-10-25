@@ -5,10 +5,6 @@ import zipfile
 import numpy.typing as npt
 import librosa
 
-import config
-
-settings = config.load()["preprocess"]
-
 OSU_FILE_EXTENSION = ".osu"
 MIN_DIFFICULTY = 0
 MAX_DIFFICULY = 10
@@ -17,6 +13,7 @@ MAX_DIFFICULY = 10
 def read_osz(
     path: str,
     audio_filename: str,
+    sample_rate: int,
     min_range: float,
     max_range: float,
     mode: str,
@@ -26,6 +23,7 @@ def read_osz(
     read an .osz archive and extract its audio and the target .osu file
     :param path: path to the .osz archive
     :param audio_filename: filename of audio file
+    :param sample_rate: the sampling rate of input audio (samples/second)
     :param min_range: consider all .osu files above and equal to this difficulty
     :param max_range: consider all .osu files below and equal to this difficulty
     :param mode: the criteria on which an .osu file is selected
@@ -64,9 +62,7 @@ def read_osz(
         for filename in z.namelist():
             if filename == audio_filename:
                 with z.open(filename) as f:
-                    audio_data, _ = librosa.load(
-                        f, sr=settings["sample_rate"], mono=True
-                    )
+                    audio_data, _ = librosa.load(f, sr=sample_rate, mono=True)
                     f.close()
 
             _, extension = os.path.splitext(filename)
@@ -128,11 +124,13 @@ def read_osz(
 
 
 def read_osz_indexed(
-    path: str, audio_filename: str, osu_filename: str
+    path: str, audio_filename: str, sample_rate: int, osu_filename: str
 ) -> tuple[npt.NDArray, list[str]]:
     """
     read an .osz archive and extract its audio and the target .osu file by filename
     :param path: path to the .osz archive
+    :param audio_filename: filename of audio file
+    :param sample_rate: the sampling rate of input audio (samples/second)
     :return audio_data: audio time series
     :return osu_data: a list of strings (osu beatmap data)
     """
@@ -143,9 +141,7 @@ def read_osz_indexed(
         for filename in z.namelist():
             if filename == audio_filename:
                 with z.open(filename) as f:
-                    audio_data, _ = librosa.load(
-                        f, sr=settings["sample_rate"], mono=True
-                    )
+                    audio_data, _ = librosa.load(f, sr=sample_rate, mono=True)
                     f.close()
 
             elif filename == osu_filename:
