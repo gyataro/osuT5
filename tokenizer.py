@@ -10,11 +10,11 @@ class Tokenizer:
         maps Event objects into corresponding token ids and vice versa
         manages special tokens (EOS, PAD)
         """
-        self._offset = 2
+        self._offset = 3
         self._event_ranges = [
             EventRange(EventType.TIME_SHIFT, 0, 800),
-            EventRange(EventType.POS_X, -24, 536),
-            EventRange(EventType.POS_Y, -24, 408),
+            EventRange(EventType.POS_X, -48, 560),
+            EventRange(EventType.POS_Y, -48, 432),
             EventRange(EventType.CIRCLE, 0, 0),
             EventRange(EventType.SLIDER, 0, 0),
             EventRange(EventType.BEZIER, 0, 0),
@@ -35,6 +35,11 @@ class Tokenizer:
     def eos_id(self) -> int:
         """[EOS] token for end-of-sequence"""
         return 1
+
+    @property
+    def time_step_id(self) -> int:
+        """[STEP] token for a single time step"""
+        return 2
 
     def decode(self, id: int) -> Event:
         offset = self._offset
@@ -72,8 +77,3 @@ class Tokenizer:
         return self._offset + sum(
             er.max_value - er.min_value + 1 for er in self._event_ranges
         )
-
-
-def n_tokens(tokenizer: Tokenizer) -> int:
-    """Vocabulary size as a multiple of 128 for TPU efficiency."""
-    return 128 * math.ceil(tokenizer.vocab_size() / 128)
