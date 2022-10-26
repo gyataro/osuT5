@@ -1,10 +1,10 @@
 from event import Event, EventType
 
 
-def parse_osu(path: str) -> tuple[list[list[Event]], list[int]]:
+def parse_osu(beatmap: list[str]) -> tuple[list[list[Event]], list[int]]:
     """
     parse an .osu beatmap, each hit object is parsed into a list of Event objects
-    :param chart: path to an .osu file.
+    :param beatmap: list of strings parsed from an .osu file
     :return events: list of Event object lists
     :return event_times: corresponding event times of Event object lists in miliseconds
 
@@ -29,14 +29,11 @@ def parse_osu(path: str) -> tuple[list[list[Event]], list[int]]:
         12600
     ]
     """
-    with open(path, "r", encoding="utf-8") as f:
-        lines = f.read().splitlines()
-
     parsing = False
     events = []
     event_times = []
 
-    for line in lines:
+    for line in beatmap:
         if line == "[HitObjects]":
             parsing = True
             continue
