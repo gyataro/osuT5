@@ -6,6 +6,10 @@ preprocess:
   n_src_seq_len: 512
   n_tgt_seq_len: 256
 
+dataset:
+  train_dataset: "./dataset/train"
+  test_dataset: "./dataset/test"
+
 model:
   d_model: 512
   n_encoder_layer: 8

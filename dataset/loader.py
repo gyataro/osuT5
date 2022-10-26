@@ -10,7 +10,7 @@ MIN_DIFFICULTY = 0
 MAX_DIFFICULY = 10
 
 
-def read_osz(
+def load_osz(
     path: str,
     audio_filename: str,
     sample_rate: int,
@@ -20,7 +20,7 @@ def read_osz(
     **kwargs,
 ) -> tuple[npt.NDArray, list[str], str, float]:
     """
-    read an .osz archive and extract its audio and the target .osu file
+    load an .osz archive and extract its audio and the target .osu file
     :param path: path to the .osz archive
     :param audio_filename: filename of audio file
     :param sample_rate: the sampling rate of input audio (samples/second)
@@ -123,11 +123,11 @@ def read_osz(
     return audio_data, osu_file["data"], osu_file["filename"], osu_file["difficulty"]
 
 
-def read_osz_indexed(
+def load_osz_indexed(
     path: str, audio_filename: str, sample_rate: int, osu_filename: str
 ) -> tuple[npt.NDArray, list[str]]:
     """
-    read an .osz archive and extract its audio and the target .osu file by filename
+    load an .osz archive and extract its audio and the target .osu file by filename
     :param path: path to the .osz archive
     :param audio_filename: filename of audio file
     :param sample_rate: the sampling rate of input audio (samples/second)
