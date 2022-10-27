@@ -94,9 +94,9 @@ class OszDataset(IterableDataset):
         frame_times: list[int],
     ) -> tuple[list[int], list[int], list[int]]:
         """
-        Tokenize Event objects and index them to audio frame times.
-        Tokenize every time shift as multiple single time steps.
-        It should always be true that event_end_indices[i] = event_start_indices[i + 1].
+        tokenize Event objects and index them to audio frame times.
+        tokenize every time shift as multiple single time steps.
+        it should always be true that event_end_indices[i] = event_start_indices[i + 1].
         :param events: list of Event object lists
         :param event_times: time of each Event object list, in miliseconds
         :param frame_times: audio frame times, in miliseconds
@@ -149,35 +149,47 @@ class OszDataset(IterableDataset):
         event_start_indices: list[int],
         event_end_indices: list[int],
         frames: npt.NDArray,
-        frames_per_split: int = 1024,
-    ) -> dict[npt.NDArray, list[int], list[int]]:
+        frames_per_split: int = 6,
+    ) -> list[dict[npt.NDArray, list[int]]]:
         """
-        Divide audio frames into splits.
-        For each split, randomly select a contiguous sequence of frames.
+        create source and target sequences for training/testing.
+        source: input to the transformer encoder
+        target: input to the transformer decoder, ground truth
+        :param event_tokens: tokenized Events and time shifts
+        :param event_start_indices: corresponding start event index for every audio frame
+        :param event_end_indices: corresponding end event index for every audio frame
+        :param frames: audio frames
+        :param frames_per_split: maximum number of frames in each split
+        :return sequences: list of source and target sequences
         """
         sequences = []
         n_frames = len(frames)
-        for index in range(0, n_frames, frames_per_split):
-            split_length = min(n_frames - index, frames_per_split)
-            max_offset = split_length - self.src_seq_len
-            sequence = {}
+        # Divide audio frames into splits
+        for split_start_idx in range(0, n_frames, frames_per_split):
+            split_end_idx = min(split_start_idx + frames_per_split, n_frames)
+            split_frames = frames[split_start_idx:split_end_idx]
+            split_event_starts = event_start_indices[split_start_idx:split_end_idx]
+            split_event_ends = event_end_indices[split_start_idx:split_end_idx]
+
+            # For each split, randomly select a contiguous sequence of frames and events
+            max_offset = len(split_frames) - self.src_seq_len
             if max_offset < 1:
-                frame_start = index
-                frame_end = index + split_length
-                event_start = event_start_indices[index]
-                event_end = event_end_indices[-1]
-
+                sequence_start_idx = 0
+                sequence_end_idx = len(split_frames)
             else:
-                offset = random.randint(0, max_offset)
-                frame_start = index + offset
-                frame_end = index + offset + self.src_seq_len
-                event_start = event_start_indices[index + offset]
-                # event_end = event_end_indices[index + offset + self.src_seq_len]
-                # IndexError: list index out of range
-                event_end = event_end_indices[index + offset + self.src_seq_len]
+                sequence_start_idx = random.randint(0, max_offset)
+                sequence_end_idx = sequence_start_idx + self.src_seq_len
 
-            sequence["source"] = frames[frame_start:frame_end]
-            sequence["target"] = event_tokens[event_start:event_end]
+            # Create the sequence
+            sequence = {}
+            sequence_event_starts = split_event_starts[
+                sequence_start_idx:sequence_end_idx
+            ]
+            sequence_event_ends = split_event_ends[sequence_start_idx:sequence_end_idx]
+            target_start_idx = sequence_event_starts[0]
+            target_end_idx = sequence_event_ends[-1]
+            sequence["source"] = split_frames[sequence_start_idx:sequence_end_idx]
+            sequence["target"] = event_tokens[target_start_idx:target_end_idx]
             sequences.append(sequence)
 
         return sequences
