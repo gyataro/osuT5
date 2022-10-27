@@ -8,7 +8,6 @@ import numpy as np
 import numpy.typing as npt
 import torch
 from torch.utils.data import IterableDataset
-from torch.utils.data.sampler import RandomSampler
 from itertools import cycle
 
 import dataset.parser as parser
@@ -278,67 +277,3 @@ class OszDataset(IterableDataset):
         :return: 'src_seq_len' audio frames and 'tgt_seq_len' event tokens
         """
         return cycle(self._get_next())
-
-
-class CustomLoader(object):
-    """
-    Here we iterate over the dataset, after drawing an index and loading the associated object,
-    we concatenate it to the tensors we drew before (batch). We keep doing this until we reach the desired size,
-    such that we can cut out and yield a batch. We retain the rows in batch, which we did not yield.
-    Because it may be the case that a single instance exceeds the desired batch_size, we use a while loop.
-
-    You could modify this minimal CustomDataloader to add more features in the style of PyTorch's dataloader.
-    There is also no need to use a RandomSampler to draw in indices, others would work equally well.
-    It would also be possible to avoid repeated concats, in case your data is large by using for example a list and keeping track of the cumulative length of its tensors.
-    """
-
-    def __init__(self, dataset, batch_size, drop_last=True):
-        self.dataset = dataset
-        self.batch_size = batch_size
-        self.drop_last = drop_last
-        self.sampler = RandomSampler(dataset)
-
-    def __iter__(self):
-        batch = torch.Tensor()
-        for index in self.sampler:
-            batch = torch.cat([batch, self.dataset[index]])
-            while batch.size(0) >= self.batch_size:
-                if batch.size(0) == self.batch_size:
-                    yield batch
-                    batch = torch.Tensor()
-                else:
-                    return_batch, batch = batch.split(
-                        [self.batch_size, batch.size(0) - self.batch_size]
-                    )
-                    yield return_batch
-        if batch.size(0) > 0 and not self.drop_last:
-            yield batch
-
-
-"""
-mel_bins = 3
-dim0sizes = torch.LongTensor(100).random_(1, 100)
-print(dim0sizes)
-print(dim0sizes.sum())
-data = torch.randn(size=(dim0sizes.sum(), mel_bins))
-tensors = torch.split(data, list(dim0sizes))
-for x in tensors:
-    print(x.shape)
-
-ds = TaikoDataset(tensors)
-train_size = int(0.8 * len(ds))
-test_size = len(ds) - train_size
-train_dataset, test_dataset = torch.utils.data.random_split(ds, [train_size, test_size])
-
-train_dataloader = CustomLoader(train_dataset, batch_size=256, drop_last=False)
-test_dataloader = CustomLoader(test_dataset, batch_size=256, drop_last=False)
-sum = 0
-for c, i in enumerate(train_dataloader):
-    print(c, i.size(0))
-    sum += i.size(0)
-for c, i in enumerate(test_dataloader):
-    print(c, i.size(0))
-    sum += i.size(0)
-
-print(sum)
-"""
