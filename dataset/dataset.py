@@ -76,7 +76,8 @@ class OszDataset(IterableDataset):
         segment audio samples into frames.
         calculate the time of each audio frame, in miliseconds.
         :param samples: audio time-series
-        :return: audio frame times
+        :return frames: audio frames
+        :return frame_times: audio frame times
         """
         samples = np.pad(samples, [0, self.frame_size - len(samples) % self.frame_size])
         frames = np.reshape(samples, (-1, self.frame_size))
@@ -194,6 +195,13 @@ class OszDataset(IterableDataset):
         return sequences
 
     def _merge_time_step_tokens(self, sequence):
+        """
+        merge time steps into time shifts.
+        convert relative time shifts into absolute time shifts.
+        each time shift token now indicates the amount of time from the beginning of the sequence.
+        :param sequence: the input sequence
+        :return: the same sequence with time steps replaced by absolute time shifts
+        """
         total_time_shift = 0
         tokens = []
         is_redundant = False
@@ -214,6 +222,13 @@ class OszDataset(IterableDataset):
         return sequence
 
     def _pad_sequence(self, sequence):
+        """
+        pad sequence to a fixed length.
+        pads source sequence with columns of zeros until 'src_seq_len'.
+        ends target sequence with an [EOS] token. Then, pad with [PAD] tokens until 'tgt_seq_len'.
+        :param sequence: the input sequence
+        :return: the same sequence with padded source and target
+        """
         source = torch.from_numpy(sequence["source"]).to(torch.float32)
         target = torch.tensor(sequence["target"], dtype=torch.long)
         if source.shape[0] < self.src_seq_len:
@@ -247,6 +262,11 @@ class OszDataset(IterableDataset):
         return sequence
 
     def _get_next(self) -> dict[int, int]:
+        """
+        creates a single sample.
+        a single .osz archive may yield multiple samples.
+        :return: a source sequence of 'src_seq_len' audio frames and target sequence of 'tgt_seq_len' event tokens.
+        """
         for osz_path in self.dataset:
             audio_samples, osu_beatmap = self._get_audio_and_osu(osz_path)
 
@@ -273,7 +293,6 @@ class OszDataset(IterableDataset):
 
     def __iter__(self):
         """
-        get a single sample from the dataset
-        :return: 'src_seq_len' audio frames and 'tgt_seq_len' event tokens
+        get a single sample from the dataset.
         """
         return cycle(self._get_next())
