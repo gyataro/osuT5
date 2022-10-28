@@ -31,14 +31,15 @@ class OszDataset(IterableDataset):
         src_seq_len: int,
         tgt_seq_len: int,
     ):
-        """
-        dataset class, manage and process .osz archives
-        :param dataset_directory: location of .osz files to load
-        :param sample_rate: sampling rate of audio file (samples/second)
-        :param frame_size: samples per audio frame (samples/frame)
-        :param loader: instance of Loader class
-        :param src_seq_len: maximum length of source sequence
-        :param tgt_seq_len: maximum length of target sequence
+        """Manage and process .osz archives.
+
+        Attributes:
+            dataset_directory: Location of .osz files to load.
+            sample_rate: Sampling rate of audio file (samples/second).
+            frame_size: Samples per audio frame (samples/frame).
+            loader: Instance of Loader class.
+            src_seq_len: Maximum length of source sequence.
+            tgt_seq_len: Maximum length of target sequence.
         """
         super().__init__()
         self.dataset = glob(f"{dataset_directory}/*{OSZ_FILE_EXTENSION}")
@@ -52,11 +53,18 @@ class OszDataset(IterableDataset):
         random.shuffle(self.dataset)
 
     def _get_audio_and_osu(self, osz_path: str) -> tuple[npt.NDArray, list[str]]:
-        """
-        load an .osz archive and get its audio samples and .osu beatmap
-        :param osz_path: path to the .osz archive
-        :return audio_samples: audio time series
-        :return osu_beatmap: a list of strings (osu beatmap data)
+        """Load an .osz archive and get its audio samples and .osu beatmap.
+
+        An .osz archive may have multiple .osu beatmaps, only one is selected based
+        on OszLoader's criteria. The selection result will be indexed, which makes
+        subsequent queries to the same .osz archive faster.
+
+        Args:
+            osz_path: Path to the .osz archive.
+
+        Returns:
+            audio_samples: Audio time series.
+            osu_beatmap: A list of strings (osu beatmap data).
         """
         if osz_path in self.dataset_index:
             audio_samples, osu_beatmap = self.loader.load_osz_indexed(
@@ -72,12 +80,17 @@ class OszDataset(IterableDataset):
         return audio_samples, osu_beatmap
 
     def _get_frames(self, samples: npt.NDArray) -> list[float]:
-        """
-        segment audio samples into frames.
-        calculate the time of each audio frame, in miliseconds.
-        :param samples: audio time-series
-        :return frames: audio frames
-        :return frame_times: audio frame times
+        """Segment audio samples into frames.
+
+        Each frame has `frame_size` audio samples.
+        It will also calculate and return the time of each audio frame, in miliseconds.
+
+        Args:
+            samples: Audio time-series.
+
+        Returns:
+            frames: Audio frames.
+            frame_times: Audio frame times.
         """
         samples = np.pad(samples, [0, self.frame_size - len(samples) % self.frame_size])
         frames = np.reshape(samples, (-1, self.frame_size))
@@ -93,16 +106,20 @@ class OszDataset(IterableDataset):
         event_times: list[int],
         frame_times: list[int],
     ) -> tuple[list[int], list[int], list[int]]:
-        """
-        tokenize Event objects and index them to audio frame times.
-        tokenize every time shift as multiple single time steps.
-        it should always be true that event_end_indices[i] = event_start_indices[i + 1].
-        :param events: list of Event object lists
-        :param event_times: time of each Event object list, in miliseconds
-        :param frame_times: audio frame times, in miliseconds
-        :return event_tokens: tokenized Events and time shifts
-        :return event_start_indices: corresponding start event index for every audio frame
-        :return event_end_indices: corresponding end event index for every audio frame
+        """Tokenize Event objects and index them to audio frame times.
+
+        Tokenize every time shift as multiple single time steps.
+        It should always be true that event_end_indices[i] = event_start_indices[i + 1].
+
+        Args:
+            events: List of Event object lists
+            event_times: Time of each Event object list, in miliseconds
+            frame_times: Audio frame times, in miliseconds
+
+        Returns:
+            event_tokens: Tokenized Events and time shifts
+            event_start_indices: Corresponding start event index for every audio frame
+            event_end_indices: Corresponding end event index for every audio frame
         """
         event_steps = [round(t * STEPS_PER_MILLISECOND) for t in event_times]
         time_step_token = self.tokenizer.time_step_id
@@ -151,16 +168,21 @@ class OszDataset(IterableDataset):
         frames: npt.NDArray,
         frames_per_split: int = 6,
     ) -> list[dict[npt.NDArray, list[int]]]:
-        """
-        create source and target sequences for training/testing.
-        source: input to the transformer encoder
-        target: input to the transformer decoder, ground truth
-        :param event_tokens: tokenized Events and time shifts
-        :param event_start_indices: corresponding start event index for every audio frame
-        :param event_end_indices: corresponding end event index for every audio frame
-        :param frames: audio frames
-        :param frames_per_split: maximum number of frames in each split
-        :return sequences: list of source and target sequences
+        """Create source and target sequences for training/testing.
+
+        Source sequence is the input to the transformer encoder.
+        Target sequence is the input to the transformer decoder,
+        which also serves as the ground truth.
+
+        Args:
+            event_tokens: Tokenized Events and time shifts.
+            event_start_indices: Corresponding start event index for every audio frame.
+            event_end_indices: Corresponding end event index for every audio frame.
+            frames: Audio frames.
+            frames_per_split: Maximum number of frames in each split.
+
+        Returns:
+            A list of source and target sequences.
         """
         sequences = []
         n_frames = len(frames)
@@ -195,12 +217,16 @@ class OszDataset(IterableDataset):
         return sequences
 
     def _merge_time_step_tokens(self, sequence):
-        """
-        merge time steps into time shifts.
-        convert relative time shifts into absolute time shifts.
-        each time shift token now indicates the amount of time from the beginning of the sequence.
-        :param sequence: the input sequence
-        :return: the same sequence with time steps replaced by absolute time shifts
+        """Merge time steps into time shifts.
+
+        Convert relative time shifts into absolute time shifts.
+        Each time shift token now indicates the amount of time from the beginning of the sequence.
+
+        Args:
+            sequence: The input sequence.
+
+        Returns:
+            The same sequence with relative time steps converted into absolute time shifts.
         """
         total_time_shift = 0
         tokens = []
@@ -222,12 +248,16 @@ class OszDataset(IterableDataset):
         return sequence
 
     def _pad_sequence(self, sequence):
-        """
-        pad sequence to a fixed length.
-        pads source sequence with columns of zeros until 'src_seq_len'.
-        ends target sequence with an [EOS] token. Then, pad with [PAD] tokens until 'tgt_seq_len'.
-        :param sequence: the input sequence
-        :return: the same sequence with padded source and target
+        """Pad sequence to a fixed length.
+
+        Pads source sequence with columns of zeros until `src_seq_len`.
+        Ends target sequence with an `[EOS]` token. Then, pad with `[PAD]` tokens until `tgt_seq_len`.
+
+        Args:
+            sequence: The input sequence.
+
+        Returns:
+            The same sequence with padded source and target.
         """
         source = torch.from_numpy(sequence["source"]).to(torch.float32)
         target = torch.tensor(sequence["target"], dtype=torch.long)
@@ -262,10 +292,13 @@ class OszDataset(IterableDataset):
         return sequence
 
     def _get_next(self) -> dict[int, int]:
-        """
-        creates a single sample.
-        a single .osz archive may yield multiple samples.
-        :return: a source sequence of 'src_seq_len' audio frames and target sequence of 'tgt_seq_len' event tokens.
+        """Generate samples.
+
+        A single .osz archive may yield multiple samples.
+
+        Yields:
+            A sample, which contains a source sequence of `src_seq_len` audio frames
+            and target sequence of `tgt_seq_len` event tokens.
         """
         for osz_path in self.dataset:
             audio_samples, osu_beatmap = self._get_audio_and_osu(osz_path)
@@ -292,7 +325,5 @@ class OszDataset(IterableDataset):
                 yield sequence
 
     def __iter__(self):
-        """
-        get a single sample from the dataset.
-        """
+        """Get a single sample from the dataset."""
         return cycle(self._get_next())

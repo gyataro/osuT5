@@ -20,18 +20,20 @@ class OszLoader(object):
         mode: str,
         **kwargs,
     ):
-        """
-        loader class, load .osz archives
-        :param sample_rate: sampling rate of audio file (samples/second)
-        :param min_difficulty: consider all .osu files above and equal to this difficulty
-        :param max_difficulty: consider all .osu files below and equal to this difficulty
-        :param mode: the criteria on which an .osu file is selected
-            - 'min': pick the .osu file with lowest difficulty, within range
-            - 'max': pick the .osu file with highest difficulty, within range
-            - 'center': pick the .osu file with a difficulty value closest to (max + min)/2, within range
-            - 'keyword': pick the first .osu file with matching keyword in filename, within range
+        """Load .osz archives.
 
-        :param keywords: used in 'keyword', list of keywords to consider
+        Attributes:
+            sample_rate: Sampling rate of audio file (samples/second).
+            min_difficulty: Consider all .osu files above and equal to this difficulty.
+            max_difficulty: Consider all .osu files below and equal to this difficulty.
+            mode: The criteria on which an .osu file is selected.
+
+                `min`: pick the .osu file with lowest difficulty, within range.
+                `max`: pick the .osu file with highest difficulty, within range.
+                `center`: pick the .osu file with a difficulty value closest to (max + min)/2, within range.
+                `keyword`: pick the first .osu file with matching keyword in filename, within range.
+
+            keywords: Used in 'keyword', list of keywords to consider.
         """
         self.sample_rate = sample_rate
         self.min_difficulty = min_difficulty
@@ -56,13 +58,16 @@ class OszLoader(object):
             raise ValueError(f"mode {self.mode} is not supported")
 
     def load_osz(self, path: str) -> tuple[npt.NDArray, list[str], str, float]:
-        """
-        load an .osz archive and extract its audio and the target .osu file
-        :param path: path to the .osz archive
-        :return audio_data: audio time series
-        :return osu_data: .osu beatmap data as a list of strings
-        :return osu_filename: the selected .osu file
-        :return osu_difficulty: the difficulty value of .osu file
+        """Load an .osz archive and extract its audio and the target .osu file.
+
+        Args:
+            path: Path to the .osz archive.
+
+        Returns:
+            audio_data: Audio time series.
+            osu_data: The .osu beatmap data as a list of strings.
+            osu_filename: The selected .osu file.
+            osu_difficulty: The difficulty value of .osu file.
         """
         audio_data = None
         osu_file = None
@@ -143,12 +148,15 @@ class OszLoader(object):
     def load_osz_indexed(
         self, path: str, osu_filename: str
     ) -> tuple[npt.NDArray, list[str]]:
-        """
-        load an .osz archive and extract its audio and the target .osu file by filename
-        :param path: path to the .osz archive
-        :param osu_filename: filename of the target .osu file
-        :return audio_data: audio time series
-        :return osu_data: a list of strings (osu beatmap data)
+        """Load an .osz archive and extract its audio and the target .osu file by filename.
+
+        Args:
+            path: Path to the .osz archive.
+            osu_filename: Filename of the target .osu file.
+
+        Returns:
+            audio_data: Audio time series.
+            osu_data: A list of strings (osu beatmap data).
         """
         audio_data = None
         osu_data = None

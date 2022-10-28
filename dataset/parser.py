@@ -2,32 +2,40 @@ from event import Event, EventType
 
 
 def parse_osu(beatmap: list[str]) -> tuple[list[list[Event]], list[int]]:
-    """
-    parse an .osu beatmap, each hit object is parsed into a list of Event objects
-    :param beatmap: list of strings parsed from an .osu file
-    :return events: list of Event object lists
-    :return event_times: corresponding event times of Event object lists in miliseconds
+    """Parse an .osu beatmap.
 
-    example:
-    64,80,11000,1,0                                       -> circle
-    256,192,11200,8,0,12000                               -> spinner
-    100,100,12600,2,0,B|200:200|250:200|250:200|300:150,2 -> slider
+    Each hit object is parsed into a list of Event objects.
+    Each list of Event objects is appended into a list, in order of its
+    appearance in the beatmap. In other words, in ascending order of time.
 
-    parsed events:
-    [
-        [x64, y80, circle],
-        [spinner_start],
-        [spinner_end],
-        [x100, y100, slider, bezier, x200, y200, x250, y200, x260, y200, x300, y150, slides2]
-    ]
+    Args:
+        beatmap: List of strings parsed from an .osu file.
 
-    parsed event times:
-    [
-        11000,
-        11200,
-        12000
-        12600
-    ]
+    Returns:
+        events: List of Event object lists.
+        event_times: Corresponding event times of Event object lists in miliseconds.
+
+    Example::
+        >>> beatmap = [
+            "64,80,11000,1,0",
+            "256,192,11200,8,0,12000",
+            "100,100,12600,2,0,B|200:200|250:200|250:200|300:150,2"
+        ]
+        >>> event, event_times = parse_osu(beatmap)
+        >>> print(event)
+        [
+            [x64, y80, circle],
+            [spinner_start],
+            [spinner_end],
+            [x100, y100, slider, bezier, x200, y200, x250, y200, x260, y200, x300, y150, slides2]
+        ]
+        >>> print(event_times)
+        [
+            11000,
+            11200,
+            12000
+            12600
+        ]
     """
     parsing = False
     events = []
@@ -63,11 +71,14 @@ def parse_osu(beatmap: list[str]) -> tuple[list[list[Event]], list[int]]:
 
 
 def parse_circle(elements: list[str]) -> tuple[list[Event], int]:
-    """
-    parse a circle hit object
-    :param elements: list of strings extracted from .osu file
-    :return events: a list of events, format: [x, y, circle]
-    :return time: time when circle is to be hit, in miliseconds from the beginning of the beatmap's audio
+    """Parse a circle hit object.
+
+    Args:
+        elements: List of strings extracted from .osu file.
+
+    Returns:
+        events: List of events, format: [x, y, circle].
+        time: Time when circle is to be hit, in miliseconds from the beginning of the beatmap's audio.
     """
     pos_x = int(elements[0])
     pos_y = int(elements[1])
@@ -83,11 +94,14 @@ def parse_circle(elements: list[str]) -> tuple[list[Event], int]:
 
 
 def parse_slider(elements: list[str]) -> tuple[list[Event], int]:
-    """
-    parse a slider hit object
-    :param elements: list of strings extracted from .osu file
-    :return events: a list of events, format: [x, y, slider, curve_type, curve_points, slides]
-    :return time: time when slider is to be dragged, in miliseconds from the beginning of the beatmap's audio
+    """Parse a slider hit object.
+
+    Args:
+        elements: List of strings extracted from .osu file.
+
+    Returns:
+        events: A list of events, format: [x, y, slider, curve_type, curve_points, slides].
+        time: Time when slider is to be dragged, in miliseconds from the beginning of the beatmap's audio.
     """
     curve_types = {
         "B": EventType.BEZIER,
@@ -124,11 +138,16 @@ def parse_slider(elements: list[str]) -> tuple[list[Event], int]:
 
 
 def parse_spinner(elements: list[str]) -> tuple[list[Event], list[Event], int, int]:
-    """
-    parse a spinner hit object
-    :param elements: list of strings extracted from .osu file
-    :return start_event: a list of events, format: []
-    :return time: time when slider is to start, in miliseconds from the beginning of the beatmap's audio
+    """Parse a spinner hit object.
+
+    Args:
+        elements: List of strings extracted from .osu file.
+
+    Returns:
+        start_event: List of events, format: [spinner_start].
+        end_event: List of events, format: [spinner_end].
+        start_time: Time when slider is to start, in miliseconds from the beginning of the beatmap's audio.
+        end_time: Time when slider is to end, in miliseconds from the beginning of the beatmap's audio.
     """
     start_time = int(elements[2])
     end_time = int(elements[5])
