@@ -1,5 +1,3 @@
-import math
-
 from event import Event, EventType, EventRange
 
 
@@ -42,6 +40,9 @@ class Tokenizer:
         return 2
 
     def decode(self, id: int) -> Event:
+        """
+        converts token ids into Event objects
+        """
         offset = self._offset
         for er in self._event_ranges:
             if offset <= id <= offset + er.max_value - er.min_value:
@@ -51,6 +52,9 @@ class Tokenizer:
         raise ValueError(f"id {id} is not mapped to any event")
 
     def encode(self, event: Event) -> int:
+        """
+        converts Event objects into token ids
+        """
         offset = self._offset
         for er in self._event_ranges:
             if event.type is er.type:
@@ -65,6 +69,9 @@ class Tokenizer:
         raise ValueError(f"unknown event type: {event.type}")
 
     def event_type_range(self, event_type: EventType) -> tuple[int, int]:
+        """
+        get the token id range of each Event type
+        """
         offset = self._offset
         for er in self._event_ranges:
             if event_type is er.type:
@@ -74,6 +81,9 @@ class Tokenizer:
         raise ValueError(f"Unknown event type: {event_type}")
 
     def vocab_size(self) -> int:
+        """
+        get the total number of token ids
+        """
         return self._offset + sum(
             er.max_value - er.min_value + 1 for er in self._event_ranges
         )
