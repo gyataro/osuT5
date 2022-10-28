@@ -7,6 +7,7 @@ CONFIG_PATH = "./config.yaml"
 
 @lru_cache()
 def load(path=CONFIG_PATH):
+    """Load project configurations from a .yaml file."""
     try:
         config = yaml.safe_load(open(path))
     except Exception as error:
