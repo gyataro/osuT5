@@ -88,7 +88,7 @@ class Transformer(nn.Module):
 
 
 class PositionalEncoder(nn.Module):
-    def __init__(self, d_model, dropout=0.1, max_len=512):
+    def __init__(self, d_model: int, dropout: float = 0.1, max_len: int = 512):
         """Inject information about the relative or absolute position of the tokens in the sequence.
 
         Source: https://github.com/pytorch/examples/blob/main/word_language_model/model.py
@@ -111,7 +111,7 @@ class PositionalEncoder(nn.Module):
         pe = pe.unsqueeze(0)
         self.register_buffer("pe", pe)
 
-    def forward(self, x):
+    def forward(self, x: torch.tensor) -> torch.tensor:
         """
         Args:
             x: The input sequence of shape (batch size, seq. length, embed dim).
