@@ -7,9 +7,8 @@ import torch.nn.functional as F
 class Transformer(nn.Module):
     def __init__(
         self,
-        d_spectrogram: int,
         d_model: int,
-        n_token: int,
+        n_tokens: int,
         n_encoder_layer: int,
         n_decoder_layer: int,
         n_head: int,
@@ -19,19 +18,18 @@ class Transformer(nn.Module):
         """Seq2seq transformer model.
 
         Attributes:
-            d_spectrogram: dim of input spectrogram frames (no. of mel bins).
             d_model: feature dim of the encoder/decoder inputs.
-            n_token: number of output token types.
-            n_head: number of heads in multi-head attention.
-            n_hidden: number of hidden neurons in the feedforward network model.
+            n_tokens: number of output token types.
             n_encoder_layer: number of sub-encoder-layers in the encoder.
             n_decoder_layer: number of sub-decoder-layers in the decoder.
+            n_head: number of heads in multi-head attention.
+            n_hidden: number of hidden neurons in the feedforward network model.
             dropout: the dropout value.
         """
         super().__init__()
         self.model_type = "Transformer"
-        self.src_embedder = nn.Linear(d_spectrogram, d_model, bias=False)
-        self.tgt_embedder = nn.Embedding(n_token, d_model)
+        self.src_embedder = nn.LazyLinear(d_model, bias=False)
+        self.tgt_embedder = nn.Embedding(n_tokens, d_model)
         self.pos_encoder = PositionalEncoder(d_model, dropout)
         self.transformer = nn.Transformer(
             d_model,
@@ -42,22 +40,24 @@ class Transformer(nn.Module):
             dropout,
             batch_first=True,
         )
-        self.linear = nn.Linear(d_model, n_token)
+        self.linear = nn.Linear(d_model, n_tokens)
 
     def forward(
         self,
         src: torch.tensor,
         tgt: torch.tensor,
-        tgt_mask: torch.tensor = None,
-        tgt_pad_mask: torch.tensor = None,
+        tgt_mask: torch.tensor,
+        tgt_key_padding_mask: torch.tensor,
     ) -> torch.tensor:
         """
         Args:
             src: Source sequence (batch size, seq. length, d_spectrogram).
             tgt: Target sequence (batch size, seq. length).
+            tgt_mask: Target sequence subsequent mask.
+            tgt_key_padding_mask: Target sequence padding mask.
 
         Returns:
-            Softmax distribution over a discrete vocabulary of events (batch size, seq. length, n_token).
+            Softmax distribution over a discrete vocabulary of events (batch size, n_token, seq. length).
         """
         src = self.src_embedder(src)
         src = self.pos_encoder(src)
@@ -65,10 +65,15 @@ class Transformer(nn.Module):
         tgt = self.pos_encoder(tgt)
 
         output = self.transformer(
-            src, tgt, tgt_mask=tgt_mask, tgt_key_padding_mask=tgt_pad_mask
+            src,
+            tgt,
+            tgt_mask=tgt_mask,
+            tgt_key_padding_mask=tgt_key_padding_mask,
         )
+
         output = self.linear(output)
-        return F.log_softmax(output, dim=-1)
+        output = F.log_softmax(output, dim=-1)
+        return output.permute(0, 2, 1)
 
     def init_weights(self):
         """Initialize weights with uniform distribution in range [-0.1, 0.1]."""
