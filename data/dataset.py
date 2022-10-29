@@ -10,8 +10,8 @@ import torch
 from torch.utils.data import IterableDataset
 from itertools import cycle
 
-import dataset.parser as parser
-from dataset.loader import OszLoader
+import data.parser as parser
+from data.loader import OszLoader
 from tokenizer import Tokenizer
 from event import Event, EventType
 
@@ -166,7 +166,7 @@ class OszDataset(IterableDataset):
         event_start_indices: list[int],
         event_end_indices: list[int],
         frames: npt.NDArray,
-        frames_per_split: int = 6,
+        frames_per_split: int = 1024,
     ) -> list[dict[npt.NDArray, list[int]]]:
         """Create source and target sequences for training/testing.
 
@@ -250,7 +250,7 @@ class OszDataset(IterableDataset):
     def _pad_sequence(self, sequence):
         """Pad sequence to a fixed length.
 
-        Pads source sequence with columns of zeros until `src_seq_len`.
+        Pads source sequence with zeros until `src_seq_len`.
         Ends target sequence with an `[EOS]` token. Then, pad with `[PAD]` tokens until `tgt_seq_len`.
 
         Args:
@@ -274,18 +274,22 @@ class OszDataset(IterableDataset):
                 torch.ones(1, dtype=target.dtype, device=target.device)
                 * self.tokenizer.eos_id
             )
-            if self.tgt_seq_len - target.shape[0] - 1 > 0:
+            sos = (
+                torch.ones(1, dtype=target.dtype, device=target.device)
+                * self.tokenizer.pad_id
+            )
+            if self.tgt_seq_len - target.shape[0] - 2 > 0:
                 pad = (
                     torch.ones(
-                        self.tgt_seq_len - target.shape[0] - 1,
+                        self.tgt_seq_len - target.shape[0] - 2,
                         dtype=target.dtype,
                         device=target.device,
                     )
                     * self.tokenizer.pad_id
                 )
-                target = torch.cat([target, eos, pad], dim=0)
+                target = torch.cat([sos, target, eos, pad], dim=0)
             else:
-                target = torch.cat([target, eos], dim=0)
+                target = torch.cat([sos, target, eos], dim=0)
 
         sequence["source"] = source
         sequence["target"] = target
