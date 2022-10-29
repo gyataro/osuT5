@@ -26,11 +26,11 @@ class MelSpectrogram(nn.Module):
             pad_mode="constant",
         )
 
-    def forward(self, samples) -> torch.tensor:
+    def forward(self, samples: torch.tensor) -> torch.tensor:
         """
-        Convert a batch of audio samples into a batch of Mel spectrogram frames.
+        Convert a batch of audio frames into a batch of Mel spectrogram frames.
 
-        For each audio in batch:
+        For each item in the batch:
         1. pad left and right ends of audio by n_fft // 2.
         2. run STFT with window size of |n_ftt| and stride of |hop_length|.
         3. convert result into mel-scale.
