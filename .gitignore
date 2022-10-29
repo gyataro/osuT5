@@ -1,4 +1,5 @@
 .venv
-dataset/train
-dataset/test
 __pycache__
+data/train
+data/test
+lightning_logs
