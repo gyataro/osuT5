@@ -19,8 +19,9 @@ class OsuTransformer(pl.LightningModule):
         super().__init__()
         self.tokenizer = Tokenizer()
         self.transformer = Transformer(
-            config.model.d_model,
             self.tokenizer.vocab_size(),
+            self.tokenizer.pad_id,
+            config.model.d_model,
             config.model.n_decoder_layer,
             config.model.n_encoder_layer,
             config.model.n_head,
@@ -43,17 +44,21 @@ class OsuTransformer(pl.LightningModule):
 
         source = torch.flatten(source, start_dim=1)
         source = self.spectrogram.forward(source)
-
-        tgt_mask = self.transformer.get_subsequent_mask(target.shape[1])
-        tgt_key_padding_mask = self.transformer.get_padding_mask(
-            target, self.tokenizer.pad_id
-        )
-
-        logits = self.transformer.forward(
-            source, target, tgt_mask, tgt_key_padding_mask
-        )
+        logits = self.transformer.forward(source, target)
         loss = self.loss_fn(logits, labels)
+        self.log("train_loss", loss)
         return loss
+
+    def validation_step(self, batch, batch_idx):
+        target = batch["target"][:, 1:]
+        labels = batch["target"][:, :-1]
+        source = batch["source"]
+
+        source = torch.flatten(source, start_dim=1)
+        source = self.spectrogram.forward(source)
+        logits = self.transformer.forward(source, target)
+        loss = self.loss_fn(logits, labels)
+        self.log("val_loss", loss)
 
     def train_dataloader(self):
         loader = OszLoader(self.config.spectrogram.sample_rate, 0, 10, "max")
@@ -74,7 +79,7 @@ class OsuTransformer(pl.LightningModule):
         return optimizer
 
 
-config = Config()
-model = OsuTransformer(config)
+    config = Config()
+    model = OsuTransformer(config)
 trainer = pl.Trainer(precision=32, max_steps=10)
 trainer.fit(model)

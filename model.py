@@ -1,4 +1,5 @@
 import math
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -7,8 +8,9 @@ import torch.nn.functional as F
 class Transformer(nn.Module):
     def __init__(
         self,
-        d_model: int,
         n_tokens: int,
+        pad_id: int,
+        d_model: int,
         n_encoder_layer: int,
         n_decoder_layer: int,
         n_head: int,
@@ -18,8 +20,9 @@ class Transformer(nn.Module):
         """Seq2seq transformer model.
 
         Attributes:
-            d_model: feature dim of the encoder/decoder inputs.
             n_tokens: number of output token types.
+            pad_id: the padding token id in target sequence.
+            d_model: feature dim of the encoder/decoder inputs.
             n_encoder_layer: number of sub-encoder-layers in the encoder.
             n_decoder_layer: number of sub-decoder-layers in the decoder.
             n_head: number of heads in multi-head attention.
@@ -39,26 +42,27 @@ class Transformer(nn.Module):
             n_hidden,
             dropout,
             batch_first=True,
+            activation="gelu",
         )
         self.linear = nn.Linear(d_model, n_tokens)
+        self.pad_id = pad_id
 
     def forward(
         self,
         src: torch.tensor,
         tgt: torch.tensor,
-        tgt_mask: torch.tensor,
-        tgt_key_padding_mask: torch.tensor,
     ) -> torch.tensor:
         """
         Args:
             src: Source sequence (batch size, seq. length, d_spectrogram).
             tgt: Target sequence (batch size, seq. length).
-            tgt_mask: Target sequence subsequent mask.
-            tgt_key_padding_mask: Target sequence padding mask.
 
         Returns:
             Softmax distribution over a discrete vocabulary of events (batch size, n_token, seq. length).
         """
+        tgt_mask = self._get_subsequent_mask(tgt.shape[-1])
+        tgt_key_padding_mask = self._get_padding_mask(tgt, self.pad_id)
+
         src = self.src_embedder(src)
         src = self.pos_encoder(src)
         tgt = self.tgt_embedder(tgt)
@@ -83,11 +87,11 @@ class Transformer(nn.Module):
         self.linear.bias.data.zero_()
         self.linear.weight.data.uniform_(-initrange, initrange)
 
-    def get_subsequent_mask(self, size: int) -> torch.tensor:
+    def _get_subsequent_mask(self, size: int) -> torch.tensor:
         """Generate a target/subsequent mask of shape (size, size)."""
         return torch.triu(torch.full((size, size), float("-inf")), diagonal=1)
 
-    def get_padding_mask(self, x: torch.tensor, pad_token: int) -> torch.tensor:
+    def _get_padding_mask(self, x: torch.tensor, pad_token: int) -> torch.tensor:
         """Generate a padding mask by marking positions with `pad_token` as `True`, `False` otherwise."""
         return x == pad_token
 
