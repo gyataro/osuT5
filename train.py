@@ -1,17 +1,14 @@
-from typing import Union
-
-import pytorch_lightning as pl
 import torch
-from torch.utils.data import DataLoader
-from torch.optim import AdamW
+import pytorch_lightning as pl
 from torch.nn import NLLLoss
+from pytorch_lightning.callbacks import ModelCheckpoint, LearningRateMonitor
 
 from config.config import Config
 from tokenizer import Tokenizer
 from model import Transformer
 from spectrogram import MelSpectrogram
-from data.dataset import OszDataset
-from data.loader import OszLoader
+from optimizer import Adafactor, get_constant_schedule_with_warmup
+from data.datamodule import OszDataModule
 
 
 class OsuTransformer(pl.LightningModule):
@@ -60,26 +57,45 @@ class OsuTransformer(pl.LightningModule):
         loss = self.loss_fn(logits, labels)
         self.log("val_loss", loss)
 
-    def train_dataloader(self):
-        loader = OszLoader(self.config.spectrogram.sample_rate, 0, 10, "max")
-        dataset = OszDataset(
-            self.config.dataset.train,
-            loader,
-            self.tokenizer,
-            self.config.spectrogram.sample_rate,
-            self.config.spectrogram.hop_length,
-            self.config.dataset.src_seq_len,
-            self.config.dataset.tgt_seq_len,
-        )
-        train_loader = DataLoader(dataset, 2, num_workers=0, pin_memory=True)
-        return train_loader
-
     def configure_optimizers(self):
-        optimizer = AdamW(self.transformer.parameters(), 1e-3)
-        return optimizer
+        optimizer = Adafactor(
+            self.transformer.parameters(),
+            config.train.lr,
+            scale_parameter=False,
+            relative_step=False,
+        )
+        schedule = {
+            "scheduler": get_constant_schedule_with_warmup(
+                optimizer=optimizer,
+                num_warmup_steps=config.train.warmup_steps,
+                last_epoch=-1,
+            ),
+            "interval": "step",
+            "frequency": 1,
+        }
+        return [optimizer], [schedule]
 
 
+if __name__ == "__main__":
     config = Config()
+    pl.seed_everything(config.seed)
     model = OsuTransformer(config)
-trainer = pl.Trainer(precision=32, max_steps=10)
-trainer.fit(model)
+    datamodule = OszDataModule(config)
+
+    lr_monitor = LearningRateMonitor(logging_interval="step")
+    model_checkpoint = ModelCheckpoint(
+        monitor="val_loss",
+        mode="min",
+        save_last=True,
+        save_top_k=3,
+        save_weights_only=False,
+    )
+
+    trainer = pl.Trainer(
+        precision=32,
+        callbacks=[lr_monitor, model_checkpoint],
+        accelerator="auto",
+        max_steps=config.train.num_steps,
+        val_check_interval=10,
+    )
+    trainer.fit(model, datamodule=datamodule)
