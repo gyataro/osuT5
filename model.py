@@ -78,7 +78,6 @@ class Transformer(nn.Module):
         )
 
         output = self.linear(output)
-        output = F.log_softmax(output, dim=-1)
         return output.permute(0, 2, 1)
 
     def init_weights(self):

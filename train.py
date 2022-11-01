@@ -1,6 +1,8 @@
+import warnings
+
 import torch
 import pytorch_lightning as pl
-from torch.nn import NLLLoss
+from torch.nn import CrossEntropyLoss
 from pytorch_lightning.callbacks import ModelCheckpoint, LearningRateMonitor
 
 from config.config import Config
@@ -10,6 +12,8 @@ from spectrogram import MelSpectrogram
 from optimizer import Adafactor, get_constant_schedule_with_warmup
 from data.datamodule import OszDataModule
 
+warnings.filterwarnings("ignore", ".*does not have many workers.*")
+
 
 class OsuTransformer(pl.LightningModule):
     def __init__(self, config: Config):
@@ -18,7 +22,7 @@ class OsuTransformer(pl.LightningModule):
         self.transformer = Transformer(
             self.tokenizer.pad_id,
             self.tokenizer.vocab_size(),
-            config.model.n_mels,
+            config.spectrogram.n_mels,
             config.model.n_encoder_layer,
             config.model.n_decoder_layer,
             config.model.n_head,
@@ -32,7 +36,7 @@ class OsuTransformer(pl.LightningModule):
             config.spectrogram.n_mels,
             config.spectrogram.hop_length,
         )
-        self.loss_fn = NLLLoss(ignore_index=self.tokenizer.pad_id, size_average=True)
+        self.loss_fn = CrossEntropyLoss(ignore_index=self.tokenizer.pad_id)
         self.config = config
 
     def training_step(self, batch, batch_idx):
@@ -43,6 +47,7 @@ class OsuTransformer(pl.LightningModule):
         source = torch.flatten(source, start_dim=1)
         source = self.spectrogram.forward(source)
         logits = self.transformer.forward(source, target)
+        print(logits.shape)
         loss = self.loss_fn(logits, labels)
         self.log("train_loss", loss)
         return loss
@@ -97,6 +102,7 @@ if __name__ == "__main__":
         callbacks=[lr_monitor, model_checkpoint],
         accelerator="auto",
         max_steps=config.train.num_steps,
-        val_check_interval=10,
+        val_check_interval=config.val.interval,
+        limit_val_batches=config.val.batches,
     )
     trainer.fit(model, datamodule=datamodule)

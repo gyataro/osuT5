@@ -5,6 +5,10 @@ train:
   warmup_steps: 1000
   lr: 0.001
 
+val:
+  interval: 10_000
+  batches: 1000
+
 dataset:
   train: "./data/train"
   val: "./data/val"
