@@ -2,6 +2,7 @@
 Testing dataloaders and datasets
 """
 import random
+import logging
 from glob import glob
 
 import numpy as np
@@ -59,6 +60,9 @@ class OszDataset(IterableDataset):
         on OszLoader's criteria. The selection result will be indexed, which makes
         subsequent queries to the same .osz archive faster.
 
+        If an archive is corrupted (bad audio, bad metadata, missing files etc.),
+        we index the selection result as `None`, which will be skipped on subsequent queries.
+
         Args:
             osz_path: Path to the .osz archive.
 
@@ -67,15 +71,23 @@ class OszDataset(IterableDataset):
             osu_beatmap: A list of strings (osu beatmap data).
         """
         if osz_path in self.dataset_index:
+            if self.dataset_index[osz_path] is None:
+                return None, None
+
             audio_samples, osu_beatmap = self.loader.load_osz_indexed(
                 osz_path,
                 self.dataset_index[osz_path],
             )
         else:
-            audio_samples, osu_beatmap, osu_filename, _ = self.loader.load_osz(
-                osz_path,
-            )
-            self.dataset_index[osz_path] = osu_filename
+            try:
+                audio_samples, osu_beatmap, osu_filename, _ = self.loader.load_osz(
+                    osz_path,
+                )
+                self.dataset_index[osz_path] = osu_filename
+            except Exception as e:
+                logging.warn(f"skipped: {osz_path}")
+                logging.warn(f"reason: {e}")
+                self.dataset_index[osz_path] = None
 
         return audio_samples, osu_beatmap
 
@@ -306,6 +318,9 @@ class OszDataset(IterableDataset):
         """
         for osz_path in self.dataset:
             audio_samples, osu_beatmap = self._get_audio_and_osu(osz_path)
+
+            if audio_samples is None or osu_beatmap is None:
+                continue
 
             frames, frame_times = self._get_frames(audio_samples)
             events, event_times = parser.parse_osu(osu_beatmap)
