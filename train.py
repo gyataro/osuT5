@@ -16,13 +16,14 @@ class OsuTransformer(pl.LightningModule):
         super().__init__()
         self.tokenizer = Tokenizer()
         self.transformer = Transformer(
-            self.tokenizer.vocab_size(),
             self.tokenizer.pad_id,
-            config.model.d_model,
-            config.model.n_decoder_layer,
+            self.tokenizer.vocab_size(),
+            config.model.n_mels,
             config.model.n_encoder_layer,
+            config.model.n_decoder_layer,
             config.model.n_head,
             config.model.n_hidden,
+            config.model.d_model,
             config.model.dropout,
         )
         self.spectrogram = MelSpectrogram(

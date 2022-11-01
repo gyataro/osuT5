@@ -8,30 +8,32 @@ import torch.nn.functional as F
 class Transformer(nn.Module):
     def __init__(
         self,
-        n_tokens: int,
         pad_id: int,
-        d_model: int,
+        n_tokens: int,
+        n_mels: int,
         n_encoder_layer: int,
         n_decoder_layer: int,
         n_head: int,
         n_hidden: int,
+        d_model: int,
         dropout: float,
     ):
         """Seq2seq transformer model.
 
         Attributes:
-            n_tokens: number of output token types.
             pad_id: the padding token id in target sequence.
-            d_model: feature dim of the encoder/decoder inputs.
+            n_tokens: number of output token types.
+            n_mels: number of mel spectrogram bins.
             n_encoder_layer: number of sub-encoder-layers in the encoder.
             n_decoder_layer: number of sub-decoder-layers in the decoder.
             n_head: number of heads in multi-head attention.
             n_hidden: number of hidden neurons in the feedforward network model.
+            d_model: feature dim of the encoder/decoder inputs.
             dropout: the dropout value.
         """
         super().__init__()
         self.model_type = "Transformer"
-        self.src_embedder = nn.LazyLinear(d_model, bias=False)
+        self.src_embedder = nn.Linear(n_mels, d_model, bias=False)
         self.tgt_embedder = nn.Embedding(n_tokens, d_model)
         self.pos_encoder = PositionalEncoder(d_model, dropout)
         self.transformer = nn.Transformer(
