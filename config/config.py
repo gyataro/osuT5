@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import os
 import yaml
 
-CONFIG_PATH = "./config/config.yaml"
+CONFIG_PATH = os.path.join(os.path.dirname(__file__), "config.yaml")
 
 
 class DotDict(dict):
