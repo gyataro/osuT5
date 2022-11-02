@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import yaml
 
 CONFIG_PATH = "./config/config.yaml"
