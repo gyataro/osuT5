@@ -1,6 +1,5 @@
 from typing import Optional
 
-from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import DataLoader
 import pytorch_lightning as pl
 
@@ -57,20 +56,3 @@ class OszDataModule(pl.LightningDataModule):
             num_workers=self.config.dataset.num_workers,
             pin_memory=True,
         )
-
-
-"""
-def collate_fn(sequence):
-    print(sequence)
-    # pad_sequence(batch_first=True, padding_value=self.tokenizer.pad_id)
-
-
-config = Config()
-wololo = DataLoader(
-    config.dataset.train,
-    batch_size=config.dataset.batch_size,
-    num_workers=config.dataset.num_workers,
-    collate_fn=collate_fn,
-    pin_memory=True,
-)
-"""

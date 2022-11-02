@@ -1,6 +1,3 @@
-"""
-Testing dataloaders and datasets
-"""
 import random
 import logging
 from glob import glob
@@ -43,7 +40,7 @@ class OszDataset(IterableDataset):
             tgt_seq_len: Maximum length of target sequence.
         """
         super().__init__()
-        self.dataset = glob(f"{dataset_directory}/*{OSZ_FILE_EXTENSION}")
+        self.dataset = glob(f"{dataset_directory}/**/*{OSZ_FILE_EXTENSION}")
         self.dataset_index = {}
         self.loader = loader
         self.tokenizer = tokenizer
@@ -51,6 +48,14 @@ class OszDataset(IterableDataset):
         self.frame_size = frame_size
         self.src_seq_len = src_seq_len
         self.tgt_seq_len = tgt_seq_len
+        # let N = |src_seq_len|
+        # N-1 frames creates N mel-spectrogram frames
+        self.frame_seq_len = src_seq_len - 1
+        # let N = |tgt_seq_len|
+        # [SOS] token + event_tokens + [EOS] token creates N+1 tokens
+        # [SOS] token + event_tokens[:-1] creates N target sequence
+        # event_tokens[1:] + [EOS] token creates N label sequence
+        self.token_seq_len = tgt_seq_len + 1
         random.shuffle(self.dataset)
 
     def _get_audio_and_osu(self, osz_path: str) -> tuple[npt.NDArray, list[str]]:
@@ -88,6 +93,7 @@ class OszDataset(IterableDataset):
                 logging.warn(f"skipped: {osz_path}")
                 logging.warn(f"reason: {e}")
                 self.dataset_index[osz_path] = None
+                return None, None
 
         return audio_samples, osu_beatmap
 
@@ -180,11 +186,7 @@ class OszDataset(IterableDataset):
         frames: npt.NDArray,
         frames_per_split: int = 1024,
     ) -> list[dict[npt.NDArray, list[int]]]:
-        """Create source and target sequences for training/testing.
-
-        Source sequence is the input to the transformer encoder.
-        Target sequence is the input to the transformer decoder,
-        which also serves as the ground truth.
+        """Create frame and token sequences for training/testing.
 
         Args:
             event_tokens: Tokenized Events and time shifts.
@@ -222,8 +224,8 @@ class OszDataset(IterableDataset):
             sequence_event_ends = split_event_ends[sequence_start_idx:sequence_end_idx]
             target_start_idx = sequence_event_starts[0]
             target_end_idx = sequence_event_ends[-1]
-            sequence["source"] = split_frames[sequence_start_idx:sequence_end_idx]
-            sequence["target"] = event_tokens[target_start_idx:target_end_idx]
+            sequence["frames"] = split_frames[sequence_start_idx:sequence_end_idx]
+            sequence["tokens"] = event_tokens[target_start_idx:target_end_idx]
             sequences.append(sequence)
 
         return sequences
@@ -244,7 +246,7 @@ class OszDataset(IterableDataset):
         tokens = []
         is_redundant = False
 
-        for token in sequence["target"]:
+        for token in sequence["tokens"]:
             if token == self.tokenizer.time_step_id:
                 total_time_shift += 1
                 is_redundant = False
@@ -256,55 +258,72 @@ class OszDataset(IterableDataset):
                     is_redundant = True
                 tokens.append(token)
 
-        sequence["target"] = tokens
+        sequence["tokens"] = tokens
         return sequence
 
-    def _pad_sequence(self, sequence):
-        """Pad sequence to a fixed length.
+    def _pad_token_sequence(self, sequence):
+        """Pad token sequence to a fixed length.
 
-        Pads source sequence with zeros until `src_seq_len`.
-        Ends target sequence with an `[EOS]` token. Then, pad with `[PAD]` tokens until `tgt_seq_len`.
+        Begin token sequence with `[PAD]` token (start-of-sequence).
+        End token sequence with `[EOS]` token (end-of-sequence).
+        Then, pad with `[PAD]` tokens until `token_seq_len`.
+
+        Token sequence (w/o last token) is the input to the transformer decoder,
+        token sequence (w/o first token) is the label, a.k.a decoder ground truth.
 
         Args:
             sequence: The input sequence.
 
         Returns:
-            The same sequence with padded source and target.
+            The same sequence with padded tokens.
         """
-        source = torch.from_numpy(sequence["source"]).to(torch.float32)
-        target = torch.tensor(sequence["target"], dtype=torch.long)
-        if source.shape[0] < self.src_seq_len:
-            pad = torch.zeros(
-                self.src_seq_len - source.shape[0],
-                source.shape[1],
-                dtype=source.dtype,
-                device=source.device,
-            )
-            source = torch.cat([source, pad], dim=0)
-        if target.shape[0] < self.tgt_seq_len:
-            eos = (
-                torch.ones(1, dtype=target.dtype, device=target.device)
-                * self.tokenizer.eos_id
-            )
-            sos = (
-                torch.ones(1, dtype=target.dtype, device=target.device)
-                * self.tokenizer.pad_id
-            )
-            if self.tgt_seq_len - target.shape[0] - 2 > 0:
-                pad = (
-                    torch.ones(
-                        self.tgt_seq_len - target.shape[0] - 2,
-                        dtype=target.dtype,
-                        device=target.device,
-                    )
-                    * self.tokenizer.pad_id
-                )
-                target = torch.cat([sos, target, eos, pad], dim=0)
-            else:
-                target = torch.cat([sos, target, eos], dim=0)
+        tokens = torch.tensor(sequence["tokens"], dtype=torch.long)
+        n = min(self.tgt_seq_len - 1, len(tokens))
+        sos = (
+            torch.ones(1, dtype=tokens.dtype, device=tokens.device)
+            * self.tokenizer.sos_id
+        )
+        eos = (
+            torch.ones(1, dtype=tokens.dtype, device=tokens.device)
+            * self.tokenizer.eos_id
+        )
+        padded_tokens = (
+            torch.ones(self.token_seq_len, dtype=tokens.dtype, device=tokens.device)
+            * self.tokenizer.pad_id
+        )
+        padded_tokens[0] = sos
+        padded_tokens[1 : n + 1] = tokens[:n]
+        padded_tokens[n + 1 : n + 2] = eos
+        sequence["tokens"] = padded_tokens
+        return sequence
 
-        sequence["source"] = source
-        sequence["target"] = target
+    def _pad_frame_sequence(self, sequence):
+        """Pad frame sequence with zeros until `frame_seq_len`.
+
+        Frame sequence can be further processed into Mel spectrogram frames,
+        which is the input to the transformer encoder.
+
+        Args:
+            sequence: The input sequence.
+
+        Returns:
+            The same sequence with padded frames.
+        """
+        frames = torch.from_numpy(sequence["frames"]).to(torch.float32)
+
+        if frames.shape[0] != self.frame_seq_len:
+            n = min(self.frame_seq_len, len(frames))
+            padded_frames = torch.zeros(
+                self.frame_seq_len,
+                frames.shape[-1],
+                dtype=frames.dtype,
+                device=frames.device,
+            )
+            padded_frames[:n] = frames[:n]
+            sequence["frames"] = padded_frames
+        else:
+            sequence["frames"] = frames
+
         return sequence
 
     def _get_next(self) -> dict[int, int]:
@@ -340,7 +359,8 @@ class OszDataset(IterableDataset):
 
             for sequence in sequences:
                 sequence = self._merge_time_step_tokens(sequence)
-                sequence = self._pad_sequence(sequence)
+                sequence = self._pad_frame_sequence(sequence)
+                sequence = self._pad_token_sequence(sequence)
                 yield sequence
 
     def __iter__(self):

@@ -4,11 +4,11 @@ from event import Event, EventType, EventRange
 class Tokenizer:
     def __init__(self):
         """Fixed vocabulary tokenizer."""
-        self._offset = 3
+        self._offset = 4
         self._event_ranges = [
             EventRange(EventType.TIME_SHIFT, 0, 800),
-            EventRange(EventType.POS_X, -48, 560),
-            EventRange(EventType.POS_Y, -48, 432),
+            EventRange(EventType.POS_X, -192, 768),
+            EventRange(EventType.POS_Y, -192, 576),
             EventRange(EventType.CIRCLE, 0, 0),
             EventRange(EventType.SLIDER, 0, 0),
             EventRange(EventType.BEZIER, 0, 0),
@@ -26,14 +26,19 @@ class Tokenizer:
         return 0
 
     @property
+    def sos_id(self) -> int:
+        """[SOS] token for start-of-sequence."""
+        return 1
+
+    @property
     def eos_id(self) -> int:
         """[EOS] token for end-of-sequence."""
-        return 1
+        return 2
 
     @property
     def time_step_id(self) -> int:
         """[STEP] token for a single time step."""
-        return 2
+        return 3
 
     def decode(self, id: int) -> Event:
         """Converts token ids into Event objects."""

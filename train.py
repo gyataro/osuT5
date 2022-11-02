@@ -1,4 +1,5 @@
-import warnings
+from __future__ import annotations
+from warnings import filterwarnings
 
 import torch
 import pytorch_lightning as pl
@@ -12,7 +13,7 @@ from spectrogram import MelSpectrogram
 from optimizer import Adafactor, get_constant_schedule_with_warmup
 from data.datamodule import OszDataModule
 
-warnings.filterwarnings("ignore", ".*does not have many workers.*")
+filterwarnings("ignore", ".*does not have many workers.*")
 
 
 class OsuTransformer(pl.LightningModule):
@@ -40,25 +41,26 @@ class OsuTransformer(pl.LightningModule):
         self.config = config
 
     def training_step(self, batch, batch_idx):
-        target = batch["target"][:, 1:]
-        labels = batch["target"][:, :-1]
-        source = batch["source"]
+        target = batch["tokens"][:, :-1]
+        labels = batch["tokens"][:, 1:]
 
-        source = torch.flatten(source, start_dim=1)
-        source = self.spectrogram.forward(source)
+        frames = batch["frames"]
+        frames = torch.flatten(frames, start_dim=1)
+        source = self.spectrogram.forward(frames)
+
         logits = self.transformer.forward(source, target)
-        print(logits.shape)
         loss = self.loss_fn(logits, labels)
         self.log("train_loss", loss)
         return loss
 
     def validation_step(self, batch, batch_idx):
-        target = batch["target"][:, 1:]
-        labels = batch["target"][:, :-1]
-        source = batch["source"]
+        target = batch["tokens"][:, :-1]
+        labels = batch["tokens"][:, 1:]
 
-        source = torch.flatten(source, start_dim=1)
-        source = self.spectrogram.forward(source)
+        frames = batch["frames"]
+        frames = torch.flatten(frames, start_dim=1)
+        source = self.spectrogram.forward(frames)
+
         logits = self.transformer.forward(source, target)
         loss = self.loss_fn(logits, labels)
         self.log("val_loss", loss)
@@ -105,4 +107,5 @@ if __name__ == "__main__":
         val_check_interval=config.val.interval,
         limit_val_batches=config.val.batches,
     )
+
     trainer.fit(model, datamodule=datamodule)
