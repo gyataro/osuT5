@@ -10,11 +10,11 @@ val:
   batches: 1000
 
 dataset:
-  train: "./data/train"
-  val: "./data/val"
-  batch_size: 2
-  num_workers: 2
-  src_seq_len: 511
+  train: "/kaggle/input/osu-beatmap-dataset/train"
+  val: "/kaggle/input/osu-beatmap-dataset/validate"
+  batch_size: 32
+  num_workers: 4
+  src_seq_len: 512
   tgt_seq_len: 256
 
 osz_loader:
