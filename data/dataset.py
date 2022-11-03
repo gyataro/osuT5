@@ -42,7 +42,9 @@ class OszDataset(IterableDataset):
             tgt_seq_len: Maximum length of target sequence.
         """
         super().__init__()
-        self.dataset = glob(f"{dataset_directory}/**/*{OSZ_FILE_EXTENSION}")
+        self.dataset = glob(
+            f"{dataset_directory}/**/*{OSZ_FILE_EXTENSION}", recursive=True
+        )
         self.dataset_index = {}
         self.loader = loader
         self.tokenizer = tokenizer
