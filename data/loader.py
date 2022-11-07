@@ -3,9 +3,12 @@ from __future__ import annotations
 import os
 import io
 import zipfile
+from typing import BinaryIO
 
+import numpy as np
 import numpy.typing as npt
-import librosa
+from pydub import AudioSegment
+from pydub.effects import normalize
 
 OSU_FILE_EXTENSION = ".osu"
 OSZ_AUDIO_FILENAME = "audio.mp3"
@@ -79,7 +82,7 @@ class OszLoader(object):
             for filename in z.namelist():
                 if filename == OSZ_AUDIO_FILENAME:
                     with z.open(filename) as f:
-                        audio_data, _ = librosa.load(f, sr=self.sample_rate, mono=True)
+                        audio_data = self._load_mp3(f)
                         f.close()
 
                 _, extension = os.path.splitext(filename)
@@ -167,7 +170,7 @@ class OszLoader(object):
             for filename in z.namelist():
                 if filename == OSZ_AUDIO_FILENAME:
                     with z.open(filename) as f:
-                        audio_data, _ = librosa.load(f, sr=self.sample_rate, mono=True)
+                        audio_data = self._load_mp3(f)
                         f.close()
 
                 elif filename == osu_filename:
@@ -179,3 +182,20 @@ class OszLoader(object):
             raise ValueError(f"no audio or .osu file matching criteria")
 
         return audio_data, osu_data
+
+    def _load_mp3(self, file: BinaryIO) -> npt.ArrayLike:
+        """Load .mp3 file as a numpy time-series array
+
+        The signals are resampled, converted to mono channel, and normalized.
+
+        Args:
+            file: Python file object.
+        Returns:
+            samples: Audio time series.
+        """
+        audio = AudioSegment.from_mp3(file)
+        audio = audio.set_frame_rate(self.sample_rate)
+        audio = audio.set_channels(1)
+        audio = normalize(audio)
+        samples = np.array(audio.get_array_of_samples())
+        return samples
