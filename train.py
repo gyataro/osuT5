@@ -21,7 +21,6 @@ class OsuTransformer(pl.LightningModule):
         super().__init__()
         self.tokenizer = Tokenizer()
         self.transformer = Transformer(
-            self.tokenizer.pad_id,
             self.tokenizer.vocab_size(),
             config.spectrogram.n_mels,
             config.model.n_encoder_layer,
@@ -38,6 +37,8 @@ class OsuTransformer(pl.LightningModule):
             config.spectrogram.hop_length,
         )
         self.loss_fn = CrossEntropyLoss(ignore_index=self.tokenizer.pad_id)
+        self.tgt_mask = self.transformer.get_subsequent_mask(config.dataset.tgt_seq_len)
+        self.pad_id = self.tokenizer.pad_id
         self.config = config
 
     def training_step(self, batch, batch_idx):
@@ -48,7 +49,14 @@ class OsuTransformer(pl.LightningModule):
         frames = torch.flatten(frames, start_dim=1)
         source = self.spectrogram.forward(frames)
 
-        logits = self.transformer.forward(source, target)
+        tgt_mask = self.tgt_mask.to(target.device)
+        tgt_key_padding_mask = Transformer.get_padding_mask(target, self.pad_id).to(
+            target.device
+        )
+
+        logits = self.transformer.forward(
+            source, target, tgt_mask, tgt_key_padding_mask
+        )
         loss = self.loss_fn(logits, labels)
         self.log("train_loss", loss)
         return loss
@@ -61,7 +69,14 @@ class OsuTransformer(pl.LightningModule):
         frames = torch.flatten(frames, start_dim=1)
         source = self.spectrogram.forward(frames)
 
-        logits = self.transformer.forward(source, target)
+        tgt_mask = self.tgt_mask.to(target.device)
+        tgt_key_padding_mask = Transformer.get_padding_mask(target, self.pad_id).to(
+            target.device
+        )
+
+        logits = self.transformer.forward(
+            source, target, tgt_mask, tgt_key_padding_mask
+        )
         loss = self.loss_fn(logits, labels)
         self.log("val_loss", loss)
 
