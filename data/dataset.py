@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 import random
 import logging
 from glob import glob
@@ -10,10 +11,10 @@ import torch
 from torch.utils.data import IterableDataset
 from itertools import cycle
 
-import parser as parser
-from loader import OszLoader
-from tokenizer import Tokenizer
-from event import Event, EventType
+from .parser import parse_osu
+from .loader import OszLoader
+from .tokenizer import Tokenizer
+from .event import Event, EventType
 
 OSZ_FILE_EXTENSION = ".osz"
 MILISECONDS_PER_SECOND = 1000
@@ -61,6 +62,7 @@ class OszDataset(IterableDataset):
         # [SOS] token + event_tokens[:-1] creates N target sequence
         # event_tokens[1:] + [EOS] token creates N label sequence
         self.token_seq_len = tgt_seq_len + 1
+        self.encoding = sys.getfilesystemencoding()
 
     def _get_audio_and_osu(self, osz_path: str) -> tuple[npt.NDArray, list[str]]:
         """Load an .osz archive and get its audio samples and .osu beatmap.
@@ -333,14 +335,14 @@ class OszDataset(IterableDataset):
             and target sequence of `tgt_seq_len` event tokens.
         """
         for osz_path in np.nditer(self.dataset):
-            osz_path = str(osz_path, encoding="utf-8")
+            osz_path = str(osz_path, encoding=self.encoding)
             audio_samples, osu_beatmap = self._get_audio_and_osu(osz_path)
 
             if audio_samples is None or osu_beatmap is None:
                 continue
 
             frames, frame_times = self._get_frames(audio_samples)
-            events, event_times = parser.parse_osu(osu_beatmap)
+            events, event_times = parse_osu(osu_beatmap)
 
             (
                 event_tokens,

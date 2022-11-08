@@ -91,7 +91,7 @@ class OsuTransformer(pl.LightningModule):
             "scheduler": get_constant_schedule_with_warmup(
                 optimizer=optimizer,
                 num_warmup_steps=config.train.warmup_steps,
-                last_epoch=self.current_epoch,
+                last_epoch=self.current_epoch - 1,
             ),
             "interval": "step",
             "frequency": 1,

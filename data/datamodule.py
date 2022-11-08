@@ -6,9 +6,9 @@ from torch.utils.data import DataLoader
 import pytorch_lightning as pl
 
 from config.config import Config
-from tokenizer import Tokenizer
-from dataset import OszDataset
-from loader import OszLoader
+from .tokenizer import Tokenizer
+from .dataset import OszDataset
+from .loader import OszLoader
 
 
 class OszDataModule(pl.LightningDataModule):

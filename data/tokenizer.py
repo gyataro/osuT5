@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from event import Event, EventType, EventRange
+from .event import Event, EventType, EventRange
 
 
 class Tokenizer:
