@@ -10,8 +10,8 @@ import torch
 from torch.utils.data import IterableDataset
 from itertools import cycle
 
-import data.parser as parser
-from data.loader import OszLoader
+import parser as parser
+from loader import OszLoader
 from tokenizer import Tokenizer
 from event import Event, EventType
 
@@ -23,7 +23,7 @@ STEPS_PER_MILLISECOND = 0.1
 class OszDataset(IterableDataset):
     def __init__(
         self,
-        dataset_directory: str,
+        path: str,
         loader: OszLoader,
         tokenizer: Tokenizer,
         sample_rate: int,
@@ -34,18 +34,19 @@ class OszDataset(IterableDataset):
         """Manage and process .osz archives.
 
         Attributes:
-            dataset_directory: Location of .osz files to load.
+            path: Location of .osz files to load.
+            loader: Instance of Loader class.
+            tokenizer: Instance of Tokenizer class.
             sample_rate: Sampling rate of audio file (samples/second).
             frame_size: Samples per audio frame (samples/frame).
-            loader: Instance of Loader class.
             src_seq_len: Maximum length of source sequence.
             tgt_seq_len: Maximum length of target sequence.
         """
         super().__init__()
-        self.dataset = glob(
-            f"{dataset_directory}/**/*{OSZ_FILE_EXTENSION}", recursive=True
+        self.dataset = np.array(
+            glob(f"{path}/**/*{OSZ_FILE_EXTENSION}", recursive=True), dtype=np.string_
         )
-        self.dataset_index = {}
+        np.random.shuffle(self.dataset)
         self.loader = loader
         self.tokenizer = tokenizer
         self.sample_rate = sample_rate
@@ -60,14 +61,12 @@ class OszDataset(IterableDataset):
         # [SOS] token + event_tokens[:-1] creates N target sequence
         # event_tokens[1:] + [EOS] token creates N label sequence
         self.token_seq_len = tgt_seq_len + 1
-        random.shuffle(self.dataset)
 
     def _get_audio_and_osu(self, osz_path: str) -> tuple[npt.NDArray, list[str]]:
         """Load an .osz archive and get its audio samples and .osu beatmap.
 
         An .osz archive may have multiple .osu beatmaps, only one is selected based
-        on OszLoader's criteria. The selection result will be indexed, which makes
-        subsequent queries to the same .osz archive faster.
+        on OszLoader's criteria.
 
         If an archive is corrupted (bad audio, bad metadata, missing files etc.),
         we index the selection result as `None`, which will be skipped on subsequent queries.
@@ -79,25 +78,14 @@ class OszDataset(IterableDataset):
             audio_samples: Audio time series.
             osu_beatmap: A list of strings (osu beatmap data).
         """
-        if osz_path in self.dataset_index:
-            if self.dataset_index[osz_path] is None:
-                return None, None
-
-            audio_samples, osu_beatmap = self.loader.load_osz_indexed(
+        try:
+            audio_samples, osu_beatmap, _, _ = self.loader.load_osz(
                 osz_path,
-                self.dataset_index[osz_path],
             )
-        else:
-            try:
-                audio_samples, osu_beatmap, osu_filename, _ = self.loader.load_osz(
-                    osz_path,
-                )
-                self.dataset_index[osz_path] = osu_filename
-            except Exception as e:
-                logging.warn(f"skipped: {osz_path}")
-                logging.warn(f"reason: {e}")
-                self.dataset_index[osz_path] = None
-                return None, None
+        except Exception as e:
+            logging.warn(f"skipped: {osz_path}")
+            logging.warn(f"reason: {e}")
+            return None, None
 
         return audio_samples, osu_beatmap
 
@@ -168,9 +156,14 @@ class OszDataset(IterableDataset):
                 fill_event_start_indices_to_cur_step()
                 cur_event_idx = len(event_tokens)
 
-            for event in event_list:
-                token = self.tokenizer.encode(event)
-                event_tokens.append(token)
+            try:
+                new_tokens = []
+                for event in event_list:
+                    token = self.tokenizer.encode(event)
+                    new_tokens.append(token)
+                event_tokens += new_tokens
+            except Exception as e:
+                logging.warn(f"tokenization failed: {e}")
 
         while cur_step / STEPS_PER_MILLISECOND <= frame_times[-1]:
             event_tokens.append(time_step_token)
@@ -339,7 +332,8 @@ class OszDataset(IterableDataset):
             A sample, which contains a source sequence of `src_seq_len` audio frames
             and target sequence of `tgt_seq_len` event tokens.
         """
-        for osz_path in self.dataset:
+        for osz_path in np.nditer(self.dataset):
+            osz_path = str(osz_path, encoding="utf-8")
             audio_samples, osu_beatmap = self._get_audio_and_osu(osz_path)
 
             if audio_samples is None or osu_beatmap is None:

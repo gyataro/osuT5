@@ -8,7 +8,6 @@ from typing import BinaryIO
 import numpy as np
 import numpy.typing as npt
 from pydub import AudioSegment
-from pydub.effects import normalize
 
 OSU_FILE_EXTENSION = ".osu"
 OSZ_AUDIO_FILENAME = "audio.mp3"
@@ -150,39 +149,6 @@ class OszLoader(object):
             osu_file["difficulty"],
         )
 
-    def load_osz_indexed(
-        self, path: str, osu_filename: str
-    ) -> tuple[npt.NDArray, list[str]]:
-        """Load an .osz archive and extract its audio and the target .osu file by filename.
-
-        Args:
-            path: Path to the .osz archive.
-            osu_filename: Filename of the target .osu file.
-
-        Returns:
-            audio_data: Audio time series.
-            osu_data: A list of strings (osu beatmap data).
-        """
-        audio_data = None
-        osu_data = None
-
-        with zipfile.ZipFile(path) as z:
-            for filename in z.namelist():
-                if filename == OSZ_AUDIO_FILENAME:
-                    with z.open(filename) as f:
-                        audio_data = self._load_mp3(f)
-                        f.close()
-
-                elif filename == osu_filename:
-                    with io.TextIOWrapper(z.open(filename), encoding="utf-8") as f:
-                        osu_data = f.read().splitlines()
-                        f.close()
-
-        if audio_data is None or osu_data is None:
-            raise ValueError(f"no audio or .osu file matching criteria")
-
-        return audio_data, osu_data
-
     def _load_mp3(self, file: BinaryIO) -> npt.ArrayLike:
         """Load .mp3 file as a numpy time-series array
 
@@ -193,9 +159,9 @@ class OszLoader(object):
         Returns:
             samples: Audio time series.
         """
-        audio = AudioSegment.from_mp3(file)
+        audio = AudioSegment.from_file(file, format="mp3")
         audio = audio.set_frame_rate(self.sample_rate)
         audio = audio.set_channels(1)
-        audio = normalize(audio)
-        samples = np.array(audio.get_array_of_samples())
+        samples = np.array(audio.get_array_of_samples()).astype(np.float32)
+        samples *= 1.0 / np.max(np.abs(samples))
         return samples
