@@ -4,14 +4,16 @@ train:
   num_steps: 300_000
   warmup_steps: 1000
   lr: 0.001
+  resume: False
+  resume_checkpoint_path: "./lightning_logs/version_{}/epoch_{}_step.ckpt"
 
 val:
   interval: 10_000
   batches: 1000
 
 dataset:
-  train: "/kaggle/input/osu-beatmap-dataset/train"
-  val: "/kaggle/input/osu-beatmap-dataset/validate"
+  train: "./data/train"
+  val: "./data/validate"
   batch_size: 32
   num_workers: 4
   src_seq_len: 512

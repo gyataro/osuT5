@@ -91,7 +91,7 @@ class OsuTransformer(pl.LightningModule):
             "scheduler": get_constant_schedule_with_warmup(
                 optimizer=optimizer,
                 num_warmup_steps=config.train.warmup_steps,
-                last_epoch=-1,
+                last_epoch=self.current_epoch,
             ),
             "interval": "step",
             "frequency": 1,
@@ -102,9 +102,13 @@ class OsuTransformer(pl.LightningModule):
 if __name__ == "__main__":
     config = Config()
     pl.seed_everything(config.seed)
-    model = OsuTransformer(config)
-    datamodule = OszDataModule(config)
 
+    if config.train.resume:
+        model = OsuTransformer.load_from_checkpoint(config.train.resume_checkpoint_path)
+    else:
+        model = OsuTransformer(config)
+
+    datamodule = OszDataModule(config)
     lr_monitor = LearningRateMonitor(logging_interval="step")
     model_checkpoint = ModelCheckpoint(
         monitor="val_loss",
