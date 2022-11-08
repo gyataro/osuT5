@@ -17,7 +17,7 @@ class Tokenizer:
             EventRange(EventType.CATMULI, 0, 0),
             EventRange(EventType.LINEAR, 0, 0),
             EventRange(EventType.PERFECT_CIRCLE, 0, 0),
-            EventRange(EventType.SLIDES, 0, 50),
+            EventRange(EventType.SLIDES, 0, 100),
             EventRange(EventType.SPINNER_START, 0, 0),
             EventRange(EventType.SPINNER_END, 0, 0),
         ]

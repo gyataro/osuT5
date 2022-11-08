@@ -7,10 +7,10 @@ from torch.nn import CrossEntropyLoss
 from pytorch_lightning.callbacks import ModelCheckpoint, LearningRateMonitor
 
 from config.config import Config
-from tokenizer import Tokenizer
 from module.transformer import Transformer
 from module.spectrogram import MelSpectrogram
 from optimizer import Adafactor, get_constant_schedule_with_warmup
+from data.tokenizer import Tokenizer
 from data.datamodule import OszDataModule
 
 filterwarnings("ignore", ".*does not have many workers.*")
