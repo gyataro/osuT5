@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from typing import Optional
 
-from torch.utils.data import DataLoader
+import numpy as np
 import pytorch_lightning as pl
+from torch.utils.data import DataLoader, get_worker_info
 
 from config.config import Config
 from .tokenizer import Tokenizer
@@ -49,6 +50,8 @@ class OszDataModule(pl.LightningDataModule):
             batch_size=self.config.dataset.batch_size,
             num_workers=self.config.dataset.num_workers,
             pin_memory=True,
+            persistent_workers=True,
+            worker_init_fn=worker_init_fn,
         )
 
     def val_dataloader(self):
@@ -57,4 +60,17 @@ class OszDataModule(pl.LightningDataModule):
             batch_size=self.config.dataset.batch_size,
             num_workers=self.config.dataset.num_workers,
             pin_memory=True,
+            persistent_workers=True,
+            worker_init_fn=worker_init_fn,
         )
+
+
+def worker_init_fn(worker_id):
+    """
+    Give each dataloader worker a unique seed.
+    This ensures that each worker loads the .osz archives
+    in a different sequential order.
+    """
+    worker_seed = get_worker_info().seed
+    numpy_seed = (worker_id + worker_seed) % 2**32 - 1
+    np.random.seed(numpy_seed)
