@@ -9,7 +9,6 @@ import numpy as np
 import numpy.typing as npt
 import torch
 from torch.utils.data import IterableDataset
-from itertools import cycle
 
 from .parser import parse_osu
 from .loader import OszLoader
@@ -330,39 +329,43 @@ class OszDataset(IterableDataset):
 
         A single .osz archive may yield multiple samples.
 
+        This is a generator that provides unlimited samples. When all .osz archives are
+        read, it will cycle to the beginning and repeat the samples.
+
         Yields:
             A sample, which contains a source sequence of `src_seq_len` audio frames
             and target sequence of `tgt_seq_len` event tokens.
         """
-        for osz_path in np.nditer(self.dataset):
-            osz_path = str(osz_path, encoding=self.encoding)
-            audio_samples, osu_beatmap = self._get_audio_and_osu(osz_path)
+        while True:
+            for osz_path in np.nditer(self.dataset):
+                osz_path = str(osz_path, encoding=self.encoding)
+                audio_samples, osu_beatmap = self._get_audio_and_osu(osz_path)
 
-            if audio_samples is None or osu_beatmap is None:
-                continue
+                if audio_samples is None or osu_beatmap is None:
+                    continue
 
-            frames, frame_times = self._get_frames(audio_samples)
-            events, event_times = parse_osu(osu_beatmap)
+                frames, frame_times = self._get_frames(audio_samples)
+                events, event_times = parse_osu(osu_beatmap)
 
-            (
-                event_tokens,
-                event_start_indices,
-                event_end_indices,
-            ) = self._tokenize_and_index_events(events, event_times, frame_times)
+                (
+                    event_tokens,
+                    event_start_indices,
+                    event_end_indices,
+                ) = self._tokenize_and_index_events(events, event_times, frame_times)
 
-            sequences = self._create_sequences(
-                event_tokens,
-                event_start_indices,
-                event_end_indices,
-                frames,
-            )
+                sequences = self._create_sequences(
+                    event_tokens,
+                    event_start_indices,
+                    event_end_indices,
+                    frames,
+                )
 
-            for sequence in sequences:
-                sequence = self._merge_time_step_tokens(sequence)
-                sequence = self._pad_frame_sequence(sequence)
-                sequence = self._pad_token_sequence(sequence)
-                yield sequence
+                for sequence in sequences:
+                    sequence = self._merge_time_step_tokens(sequence)
+                    sequence = self._pad_frame_sequence(sequence)
+                    sequence = self._pad_token_sequence(sequence)
+                    yield sequence
 
     def __iter__(self):
         """Get a single sample from the dataset."""
-        return cycle(self._get_next())
+        return self._get_next()

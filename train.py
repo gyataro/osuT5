@@ -99,8 +99,11 @@ class OsuTransformer(pl.LightningModule):
         return [optimizer], [schedule]
 
 
+config = Config()
+datamodule = OszDataModule(config)
+
 if __name__ == "__main__":
-    config = Config()
+    torch.multiprocessing.set_start_method("spawn", force=True)
     pl.seed_everything(config.seed)
 
     if config.train.resume:
@@ -108,7 +111,6 @@ if __name__ == "__main__":
     else:
         model = OsuTransformer(config)
 
-    datamodule = OszDataModule(config)
     lr_monitor = LearningRateMonitor(logging_interval="step")
     model_checkpoint = ModelCheckpoint(
         monitor="val_loss",
