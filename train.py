@@ -9,7 +9,8 @@ from pytorch_lightning.callbacks import ModelCheckpoint, LearningRateMonitor
 from config.config import Config
 from module.transformer import Transformer
 from module.spectrogram import MelSpectrogram
-from optimizer import Adafactor, get_constant_schedule_with_warmup
+from optimization.optimizer import Adafactor
+from optimization.scheduler import get_constant_schedule_with_warmup
 from data.tokenizer import Tokenizer
 from data.datamodule import OszDataModule
 
