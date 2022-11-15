@@ -206,13 +206,13 @@ class OszDataset(IterableDataset):
             split_event_ends = event_end_indices[split_start_idx:split_end_idx]
 
             # For each split, randomly select a contiguous sequence of frames and events
-            max_offset = len(split_frames) - self.src_seq_len
+            max_offset = len(split_frames) - self.frame_seq_len
             if max_offset < 1:
                 sequence_start_idx = 0
                 sequence_end_idx = len(split_frames)
             else:
                 sequence_start_idx = random.randint(0, max_offset)
-                sequence_end_idx = sequence_start_idx + self.src_seq_len
+                sequence_end_idx = sequence_start_idx + self.frame_seq_len
 
             # Create the sequence
             sequence = {}
@@ -333,8 +333,8 @@ class OszDataset(IterableDataset):
         read, it will cycle to the beginning and repeat the samples.
 
         Yields:
-            A sample, which contains a source sequence of `src_seq_len` audio frames
-            and target sequence of `tgt_seq_len` event tokens.
+            A sample, which contains a source sequence of `frame_seq_len` audio frames
+            and target sequence of `token_seq_len` event tokens.
         """
         while True:
             for osz_path in np.nditer(self.dataset):
