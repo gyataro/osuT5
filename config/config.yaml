@@ -3,7 +3,7 @@ seed: 42
 train:
   num_steps: 300_000
   warmup_steps: 1000
-  lr: 0.001
+  lr: 0.0001
   resume: False
   resume_checkpoint_path: "./lightning_logs/version_{}/epoch_{}_step.ckpt"
 
@@ -22,7 +22,7 @@ dataset:
 osz_loader:
   min_difficulty: 0
   max_difficulty: 10
-  mode: "center"
+  mode: "max"
 
 spectrogram:
   sample_rate: 16000
@@ -32,8 +32,8 @@ spectrogram:
 
 model:
   d_model: 512
-  n_encoder_layer: 8
-  n_decoder_layer: 8
+  n_encoder_layer: 6
+  n_decoder_layer: 6
   n_head: 8
   n_hidden: 1024
-  dropout: 0.1
+  dropout: 0.2

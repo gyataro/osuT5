@@ -37,7 +37,9 @@ class OsuTransformer(pl.LightningModule):
             config.spectrogram.n_mels,
             config.spectrogram.hop_length,
         )
-        self.loss_fn = CrossEntropyLoss(ignore_index=self.tokenizer.pad_id)
+        self.loss_fn = CrossEntropyLoss(
+            ignore_index=self.tokenizer.pad_id, label_smoothing=0.1
+        )
         self.tgt_mask = self.transformer.get_subsequent_mask(config.dataset.tgt_seq_len)
         self.pad_id = self.tokenizer.pad_id
         self.config = config
