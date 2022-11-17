@@ -43,16 +43,14 @@ class OsuTransformer(pl.LightningModule):
         self.loss_fn = CrossEntropyLoss(
             ignore_index=self.tokenizer.pad_id, label_smoothing=0.1
         )
-        self.metrics = {
-            "f1_score": MulticlassF1Score(
-                self.vocab_size,
-                average="weighted",
-                multidim_average="global",
-                ignore_index=self.tokenizer.pad_id,
-                validate_args=False,
-            ),
-            "cosine_similarity": CosineSimilarity(reduction="mean"),
-        }
+        self.f1_score = MulticlassF1Score(
+            self.vocab_size,
+            average="weighted",
+            multidim_average="global",
+            ignore_index=self.tokenizer.pad_id,
+            validate_args=False,
+        )
+        self.cosine_similarity = CosineSimilarity(reduction="mean")
         self.tgt_mask = self.transformer.get_subsequent_mask(config.dataset.tgt_seq_len)
         self.pad_id = self.tokenizer.pad_id
         self.config = config
@@ -95,9 +93,10 @@ class OsuTransformer(pl.LightningModule):
         )
         predictions = torch.argmax(logits, dim=1)
 
-        for metric_name, metric_fn in self.metrics.items():
-            score = metric_fn(predictions, labels)
-            self.log(metric_name, score)
+        f1_score = self.f1_score(predictions, labels)
+        cosine_similarity = self.cosine_similarity(predictions, labels)
+        self.log("fl_score", f1_score)
+        self.log("cosine_similarity", cosine_similarity)
 
     def configure_optimizers(self):
         optimizer = Adafactor(
