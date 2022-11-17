@@ -132,8 +132,9 @@ class OszDataset(IterableDataset):
             event_start_indices: Corresponding start event index for every audio frame
             event_end_indices: Corresponding end event index for every audio frame
         """
+        EOH_TOKEN = self.tokenizer.eoh_id
+        TIME_STEP_TOKEN = self.tokenizer.time_step_id
         event_steps = [round(t * STEPS_PER_MILLISECOND) for t in event_times]
-        time_step_token = self.tokenizer.time_step_id
 
         cur_step = 0
         cur_event_idx = 0
@@ -152,7 +153,7 @@ class OszDataset(IterableDataset):
 
         for event_step, event_list in zip(event_steps, events):
             while event_step > cur_step:
-                event_tokens.append(time_step_token)
+                event_tokens.append(TIME_STEP_TOKEN)
                 cur_step += 1
                 fill_event_start_indices_to_cur_step()
                 cur_event_idx = len(event_tokens)
@@ -162,12 +163,13 @@ class OszDataset(IterableDataset):
                 for event in event_list:
                     token = self.tokenizer.encode(event)
                     new_tokens.append(token)
+                new_tokens.append(EOH_TOKEN)
                 event_tokens += new_tokens
             except Exception as e:
                 logging.warn(f"tokenization failed: {e}")
 
         while cur_step / STEPS_PER_MILLISECOND <= frame_times[-1]:
-            event_tokens.append(time_step_token)
+            event_tokens.append(TIME_STEP_TOKEN)
             cur_step += 1
             fill_event_start_indices_to_cur_step()
             cur_event_idx = len(event_tokens)

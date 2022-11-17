@@ -6,20 +6,17 @@ from .event import Event, EventType, EventRange
 class Tokenizer:
     def __init__(self):
         """Fixed vocabulary tokenizer."""
-        self._offset = 4
+        self._offset = 5
         self._event_ranges = [
-            EventRange(EventType.TIME_SHIFT, 0, 800),
-            EventRange(EventType.POS_X, -192, 768),
-            EventRange(EventType.POS_Y, -192, 576),
+            EventRange(EventType.TIME_SHIFT, 0, 512),
+            EventRange(EventType.POINT, 0, 512),
             EventRange(EventType.CIRCLE, 0, 0),
-            EventRange(EventType.SLIDER, 0, 0),
-            EventRange(EventType.BEZIER, 0, 0),
-            EventRange(EventType.CATMULI, 0, 0),
-            EventRange(EventType.LINEAR, 0, 0),
-            EventRange(EventType.PERFECT_CIRCLE, 0, 0),
+            EventRange(EventType.SLIDER_BEZIER, 0, 0),
+            EventRange(EventType.SLIDER_CATMULI, 0, 0),
+            EventRange(EventType.SLIDER_LINEAR, 0, 0),
+            EventRange(EventType.SLIDER_PERFECT_CIRCLE, 0, 0),
+            EventRange(EventType.CONTROL_POINT, -128, 640),
             EventRange(EventType.SLIDES, 0, 100),
-            EventRange(EventType.SPINNER_START, 0, 0),
-            EventRange(EventType.SPINNER_END, 0, 0),
         ]
 
     @property
@@ -38,9 +35,14 @@ class Tokenizer:
         return 2
 
     @property
+    def eoh_id(self) -> int:
+        """[EOH] token for end-of-hit-object"""
+        return 3
+
+    @property
     def time_step_id(self) -> int:
         """[STEP] token for a single time step."""
-        return 3
+        return 4
 
     def decode(self, id: int) -> Event:
         """Converts token ids into Event objects."""

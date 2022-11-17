@@ -20,22 +20,17 @@ def parse_osu(beatmap: list[str]) -> tuple[list[list[Event]], list[int]]:
     Example::
         >>> beatmap = [
             "64,80,11000,1,0",
-            "256,192,11200,8,0,12000",
             "100,100,12600,2,0,B|200:200|250:200|250:200|300:150,2"
         ]
         >>> event, event_times = parse_osu(beatmap)
         >>> print(event)
         [
-            [x64, y80, circle],
-            [spinner_start],
-            [spinner_end],
-            [x100, y100, slider, bezier, x200, y200, x250, y200, x260, y200, x300, y150, slides2]
+            [p64, p80, circle],
+            [p100, p100, slider_b, cp200, cp200, cp250, cp200, cp260, cp200, cp300, cp150, slides2]
         ]
         >>> print(event_times)
         [
             11000,
-            11200,
-            12000
             12600
         ]
     """
@@ -60,14 +55,6 @@ def parse_osu(beatmap: list[str]) -> tuple[list[list[Event]], list[int]]:
                 slider, time = parse_slider(elements)
                 events.append(slider)
                 event_times.append(time)
-            elif type & 8:
-                start_spinner, end_spinner, start_time, end_time = parse_spinner(
-                    elements
-                )
-                events.append(start_spinner)
-                events.append(end_spinner)
-                event_times.append(start_time)
-                event_times.append(end_time)
 
     return events, event_times
 
@@ -87,8 +74,8 @@ def parse_circle(elements: list[str]) -> tuple[list[Event], int]:
     time = int(elements[2])
 
     events = [
-        Event(EventType.POS_X, pos_x),
-        Event(EventType.POS_Y, pos_y),
+        Event(EventType.POINT, pos_x),
+        Event(EventType.POINT, pos_y),
         Event(EventType.CIRCLE),
     ]
 
@@ -102,14 +89,14 @@ def parse_slider(elements: list[str]) -> tuple[list[Event], int]:
         elements: List of strings extracted from .osu file.
 
     Returns:
-        events: A list of events, format: [x, y, slider, curve_type, curve_points, slides].
+        events: A list of events, format: [x, y, slider_type, curve_points, slides].
         time: Time when slider is to be dragged, in miliseconds from the beginning of the beatmap's audio.
     """
     curve_types = {
-        "B": EventType.BEZIER,
-        "C": EventType.CATMULI,
-        "L": EventType.LINEAR,
-        "P": EventType.PERFECT_CIRCLE,
+        "B": EventType.SLIDER_BEZIER,
+        "C": EventType.SLIDER_CATMULI,
+        "L": EventType.SLIDER_LINEAR,
+        "P": EventType.SLIDER_PERFECT_CIRCLE,
     }
 
     pos_x = int(elements[0])
@@ -117,43 +104,22 @@ def parse_slider(elements: list[str]) -> tuple[list[Event], int]:
     time = int(elements[2])
 
     events = [
-        Event(EventType.POS_X, pos_x),
-        Event(EventType.POS_Y, pos_y),
-        Event(EventType.SLIDER),
+        Event(EventType.POINT, pos_x),
+        Event(EventType.POINT, pos_y),
     ]
 
     curve = elements[5].split("|")
-    curve_type = curve_types[curve[0]]
+    curve_type = curve_types[curve[0].capitalize()]
     events.append(Event(curve_type))
 
     for curve_point in curve[1:]:
         curve_point = curve_point.split(":")
         curve_x = abs(int(curve_point[0]))
         curve_y = abs(int(curve_point[1]))
-        events.append(Event(EventType.POS_X, curve_x))
-        events.append(Event(EventType.POS_Y, curve_y))
+        events.append(Event(EventType.CONTROL_POINT, curve_x))
+        events.append(Event(EventType.CONTROL_POINT, curve_y))
 
     slides = int(elements[6])
     events.append(Event(EventType.SLIDES, slides))
 
     return events, time
-
-
-def parse_spinner(elements: list[str]) -> tuple[list[Event], list[Event], int, int]:
-    """Parse a spinner hit object.
-
-    Args:
-        elements: List of strings extracted from .osu file.
-
-    Returns:
-        start_event: List of events, format: [spinner_start].
-        end_event: List of events, format: [spinner_end].
-        start_time: Time when slider is to start, in miliseconds from the beginning of the beatmap's audio.
-        end_time: Time when slider is to end, in miliseconds from the beginning of the beatmap's audio.
-    """
-    start_time = int(elements[2])
-    end_time = int(elements[5])
-    start_event = [Event(EventType.SPINNER_START)]
-    end_event = [Event(EventType.SPINNER_END)]
-
-    return start_event, end_event, start_time, end_time

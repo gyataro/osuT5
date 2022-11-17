@@ -6,17 +6,14 @@ from enum import Enum
 
 class EventType(Enum):
     TIME_SHIFT = "t"
-    POS_X = "x"
-    POS_Y = "y"
+    POINT = "p"
     CIRCLE = "circle"
-    SLIDER = "slider"
-    BEZIER = "bezier"
-    CATMULI = "catmuli"
-    LINEAR = "linear"
-    PERFECT_CIRCLE = "perfect_circle"
+    SLIDER_BEZIER = "slide_b"
+    SLIDER_CATMULI = "slide_c"
+    SLIDER_LINEAR = "slide_l"
+    SLIDER_PERFECT_CIRCLE = "slide_p"
+    CONTROL_POINT = "cp"
     SLIDES = "slides"
-    SPINNER_START = "spinner_start"
-    SPINNER_END = "spinner_end"
 
 
 @dataclasses.dataclass
