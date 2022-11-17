@@ -4,6 +4,8 @@ from warnings import filterwarnings
 import torch
 import pytorch_lightning as pl
 from torch.nn import CrossEntropyLoss
+from torchmetrics import CosineSimilarity
+from torchmetrics.classification import MulticlassF1Score
 from pytorch_lightning.callbacks import ModelCheckpoint, LearningRateMonitor
 
 from config.config import Config
@@ -21,8 +23,9 @@ class OsuTransformer(pl.LightningModule):
     def __init__(self, config: Config):
         super().__init__()
         self.tokenizer = Tokenizer()
+        self.vocab_size = self.tokenizer.vocab_size()
         self.transformer = Transformer(
-            self.tokenizer.vocab_size(),
+            self.vocab_size,
             config.spectrogram.n_mels,
             config.model.n_encoder_layer,
             config.model.n_decoder_layer,
@@ -40,6 +43,16 @@ class OsuTransformer(pl.LightningModule):
         self.loss_fn = CrossEntropyLoss(
             ignore_index=self.tokenizer.pad_id, label_smoothing=0.1
         )
+        self.metrics = {
+            "f1_score": MulticlassF1Score(
+                self.vocab_size,
+                average="weighted",
+                multidim_average="global",
+                ignore_index=self.tokenizer.pad_id,
+                validate_args=False,
+            ),
+            "cosine_similarity": CosineSimilarity(reduction="mean"),
+        }
         self.tgt_mask = self.transformer.get_subsequent_mask(config.dataset.tgt_seq_len)
         self.pad_id = self.tokenizer.pad_id
         self.config = config
@@ -80,8 +93,11 @@ class OsuTransformer(pl.LightningModule):
         logits = self.transformer.forward(
             source, target, tgt_mask, tgt_key_padding_mask
         )
-        loss = self.loss_fn(logits, labels)
-        self.log("val_loss", loss)
+        predictions = torch.argmax(logits, dim=1)
+
+        for metric_name, metric_fn in self.metrics.items():
+            score = metric_fn(predictions, labels)
+            self.log(metric_name, score)
 
     def configure_optimizers(self):
         optimizer = Adafactor(
@@ -116,11 +132,12 @@ if __name__ == "__main__":
 
     lr_monitor = LearningRateMonitor(logging_interval="step")
     model_checkpoint = ModelCheckpoint(
-        monitor="val_loss",
-        mode="min",
+        monitor="f1_score",
+        mode="max",
         save_last=True,
         save_top_k=3,
         save_weights_only=False,
+        filename="{step}-{f1_score:.2f}",
     )
 
     trainer = pl.Trainer(
