@@ -55,6 +55,12 @@ class OsuTransformer(pl.LightningModule):
         self.pad_id = self.tokenizer.pad_id
         self.config = config
 
+    def forward(self, source, target):
+        source = torch.flatten(source, start_dim=1)
+        source = self.spectrogram.forward(source)
+        logits = self.transformer.forward(source, target, None, None)
+        return logits
+
     def training_step(self, batch, batch_idx):
         target = batch["tokens"][:, :-1]
         labels = batch["tokens"][:, 1:]
@@ -95,7 +101,7 @@ class OsuTransformer(pl.LightningModule):
 
         f1_score = self.f1_score(predictions, labels)
         cosine_similarity = self.cosine_similarity(predictions, labels)
-        self.log("fl_score", f1_score)
+        self.log("f1_score", f1_score)
         self.log("cosine_similarity", cosine_similarity)
 
     def configure_optimizers(self):
