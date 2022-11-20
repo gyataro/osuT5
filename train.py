@@ -22,6 +22,7 @@ filterwarnings("ignore", ".*does not have many workers.*")
 class OsuTransformer(pl.LightningModule):
     def __init__(self, config: Config):
         super().__init__()
+        self.save_hyperparameters(config)
         self.tokenizer = Tokenizer()
         self.vocab_size = self.tokenizer.vocab_size()
         self.transformer = Transformer(
@@ -131,7 +132,11 @@ if __name__ == "__main__":
     pl.seed_everything(config.seed)
 
     if config.train.resume:
-        model = OsuTransformer.load_from_checkpoint(config.train.resume_checkpoint_path)
+        model = OsuTransformer.load_from_checkpoint(
+            checkpoint_path=config.train.resume_checkpoint_path,
+            map_location=torch.device("cpu"),
+            config=config,
+        )
     else:
         model = OsuTransformer(config)
 
