@@ -128,7 +128,6 @@ if __name__ == "__main__":
     if config.train.resume:
         model = OsuTransformer.load_from_checkpoint(
             checkpoint_path=config.train.resume_checkpoint_path,
-            map_location=torch.device("cpu"),
             config=config,
         )
     else:
