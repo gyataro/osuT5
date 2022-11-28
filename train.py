@@ -4,7 +4,6 @@ from warnings import filterwarnings
 import torch
 import pytorch_lightning as pl
 from torch.nn import CrossEntropyLoss
-from torchmetrics import CosineSimilarity
 from torchmetrics.classification import MulticlassF1Score
 from pytorch_lightning.callbacks import ModelCheckpoint, LearningRateMonitor
 
@@ -12,7 +11,7 @@ from config.config import Config
 from module.transformer import Transformer
 from module.spectrogram import MelSpectrogram
 from optimization.optimizer import Adafactor
-from optimization.scheduler import get_constant_schedule_with_warmup
+from optimization.scheduler import get_cosine_schedule_with_warmup
 from data.tokenizer import Tokenizer
 from data.datamodule import OszDataModule
 
@@ -41,9 +40,7 @@ class OsuTransformer(pl.LightningModule):
             config.spectrogram.n_mels,
             config.spectrogram.hop_length,
         )
-        self.loss_fn = CrossEntropyLoss(
-            ignore_index=self.tokenizer.pad_id, label_smoothing=0.1
-        )
+        self.loss_fn = CrossEntropyLoss(ignore_index=self.tokenizer.pad_id)
         self.f1_score = MulticlassF1Score(
             self.vocab_size,
             average="weighted",
@@ -51,7 +48,6 @@ class OsuTransformer(pl.LightningModule):
             ignore_index=self.tokenizer.pad_id,
             validate_args=False,
         )
-        self.cosine_similarity = CosineSimilarity(reduction="mean")
         self.tgt_mask = self.transformer.get_subsequent_mask(config.dataset.tgt_seq_len)
         self.pad_id = self.tokenizer.pad_id
         self.config = config
@@ -101,9 +97,7 @@ class OsuTransformer(pl.LightningModule):
         predictions = torch.argmax(logits, dim=1)
 
         f1_score = self.f1_score(predictions, labels)
-        cosine_similarity = self.cosine_similarity(predictions, labels)
         self.log("f1_score", f1_score)
-        self.log("cosine_similarity", cosine_similarity)
 
     def configure_optimizers(self):
         optimizer = Adafactor(
@@ -113,10 +107,10 @@ class OsuTransformer(pl.LightningModule):
             relative_step=False,
         )
         schedule = {
-            "scheduler": get_constant_schedule_with_warmup(
+            "scheduler": get_cosine_schedule_with_warmup(
                 optimizer=optimizer,
                 num_warmup_steps=config.train.warmup_steps,
-                last_epoch=self.current_epoch - 1,
+                num_training_steps=config.train.total_steps,
             ),
             "interval": "step",
             "frequency": 1,
@@ -154,7 +148,7 @@ if __name__ == "__main__":
         precision=32,
         callbacks=[lr_monitor, model_checkpoint],
         accelerator="auto",
-        max_steps=config.train.num_steps,
+        max_steps=config.train.session_steps,
         val_check_interval=config.val.interval,
         limit_val_batches=config.val.batches,
     )

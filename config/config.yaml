@@ -2,6 +2,7 @@ seed: 42
 
 train:
   num_steps: 300_000
+  session_steps: 40_000
   warmup_steps: 1000
   lr: 0.0001
   resume: False
