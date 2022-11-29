@@ -361,11 +361,11 @@ class OszDataset(IterableDataset):
                 )
 
                 for sequence in sequences:
-                    if sequence["tokens"][1] == self.tokenizer.eos_id:
-                        continue
                     sequence = self._merge_time_step_tokens(sequence)
                     sequence = self._pad_frame_sequence(sequence)
                     sequence = self._pad_token_sequence(sequence)
+                    if sequence["tokens"][1] == self.tokenizer.eos_id:
+                        continue
                     yield sequence
 
     def __iter__(self):
