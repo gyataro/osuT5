@@ -1,16 +1,16 @@
 seed: 42
 
 train:
-  num_steps: 300_000
-  session_steps: 40_000
+  num_steps: 300000
+  session_steps: 40000
   warmup_steps: 1000
-  lr: 0.0001
+  lr: 0.0003
   resume: False
   resume_checkpoint_path: "./lightning_logs/version_{}/epoch_{}_step.ckpt"
 
 val:
-  interval: 10_000
-  batches: 1000
+  interval: 1000
+  batches: 50
 
 dataset:
   train: "./data/train"
@@ -37,4 +37,4 @@ model:
   n_decoder_layer: 6
   n_head: 8
   n_hidden: 1024
-  dropout: 0.2
+  dropout: 0.1
