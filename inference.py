@@ -1,68 +1,185 @@
 from __future__ import annotations
-import logging
 
 import torch
 import numpy as np
-from torch import nn
+import numpy.typing as npt
+import torch.nn.functional as F
 from pydub import AudioSegment
-from scipy.signal import resample
+from tqdm import tqdm
 
-from train import OsuTransformer
+from model import OsuTransformer
 from data.tokenizer import Tokenizer
-from data.event import EventType
+from data.event import Event, EventType
 from config.config import Config
+
+MILISECONDS_PER_STEP = 10
+MILISECONDS_PER_SECOND = 1000
 
 
 class Preprocessor(object):
-    def __init__(self, config: Config):
+    def __init__(self, config):
+        """Preprocess audio data into sequences."""
         self.frame_seq_len = config.dataset.src_seq_len - 1
         self.frame_size = config.spectrogram.hop_length
         self.sample_rate = config.spectrogram.sample_rate
+        self.samples_per_sequence = self.frame_seq_len * self.frame_size
 
-    def preprocess(self):
-        # 1. Convert stereo to mono, normalize.
-        audio = AudioSegment.from_file("./audio.mp3", format="mp3")
+    def load(self, path: str) -> npt.ArrayLike:
+        """Load an audio file as audio frames. Convert stereo to mono, normalize.
+
+        Args:
+            path: Path to audio file.
+
+        Returns:
+            samples: Audio time-series.
+        """
+        audio = AudioSegment.from_file(path)
         audio = audio.set_frame_rate(self.sample_rate)
         audio = audio.set_channels(1)
         samples = np.array(audio.get_array_of_samples()).astype(np.float32)
-        # samples = samples.mean(axis=1).astype(np.float32)
         samples *= 1.0 / np.max(np.abs(samples))
+        return samples
 
-        # 2. Segment audio samples into frames.
-        samples = np.pad(samples, [0, self.frame_size - len(samples) % self.frame_size])
-        frames = np.reshape(samples, (-1, self.frame_size))
+    def segment(self, samples: npt.ArrayLike) -> torch.Tensor:
+        """Segment audio samples into sequences. Sequences are flattened frames.
 
-        # 3. Create frame sequences.
-        sequences = []
-        n_frames = len(frames)
-        for split_start_idx in range(0, n_frames, self.frame_seq_len):
-            split_end_idx = min(split_start_idx + self.frame_seq_len, n_frames)
-            split_frames = frames[split_start_idx:split_end_idx]
+        Args:
+            samples: Audio time-series.
 
-            split_frames = torch.from_numpy(split_frames).to(torch.float32)
+        Returns:
+            sequences: Sequences each with `samples_per_sequence` samples.
+        """
+        samples = np.pad(
+            samples,
+            [0, self.samples_per_sequence - len(samples) % self.samples_per_sequence],
+        )
+        sequences = np.reshape(samples, (-1, self.samples_per_sequence))
+        return torch.from_numpy(sequences).to(torch.float32)
 
-            # 4. Pad each frame sequence with zeros until `frame_seq_len`.
-            if len(split_frames) != self.frame_seq_len:
-                n = min(self.frame_seq_len, len(split_frames))
-                padded_frames = torch.zeros(
-                    self.frame_seq_len,
-                    split_frames.shape[-1],
-                    dtype=split_frames.dtype,
-                    device=split_frames.device,
-                )
-                padded_frames[:n] = split_frames[:n]
-                sequences.append(padded_frames)
+
+class Pipeline(object):
+    def __init__(self, config):
+        """Model inference stage that processes sequences."""
+        self.tokenizer = Tokenizer()
+        self.tgt_seq_len = config.dataset.tgt_seq_len
+        self.frame_seq_len = config.dataset.src_seq_len - 1
+        self.frame_size = config.spectrogram.hop_length
+        self.sample_rate = config.spectrogram.sample_rate
+        self.samples_per_sequence = self.frame_seq_len * self.frame_size
+        self.miliseconds_per_sequence = (
+            self.samples_per_sequence * MILISECONDS_PER_SECOND / self.sample_rate
+        )
+
+    def generate(self, model: OsuTransformer, sequences: torch.Tensor):
+        """Generate a list of Event object lists and their timestamps given source sequences.
+
+        Args:
+            model: Trained model to use for inference.
+            sequences: Input source sequences.
+
+        Returns:
+            events: List of Event object lists.
+            event_times: Corresponding event times of Event object lists in miliseconds.
+        """
+        events, event_times = [], []
+
+        for index, sequence in enumerate(tqdm(sequences)):
+            src = torch.unsqueeze(sequence, 0)
+            tgt = torch.tensor([[self.tokenizer.sos_id]])
+
+            for _ in tqdm(range(self.tgt_seq_len - 1), leave=False):
+                logits = model.forward(src, tgt)
+                logits = logits[0, :, -1]
+                logits = self._filter(logits, 0.9)
+                probabilities = F.softmax(logits, dim=-1)
+                token = torch.multinomial(probabilities, 1)
+
+                if token == self.tokenizer.eos_id:
+                    break
+
+                tgt = torch.cat([tgt, token.unsqueeze(-1)], dim=-1)
+
+            result = self._decode(tgt[0], index)
+            events.append(result[0])
+            event_times.append(result[1])
+
+        return events, event_times
+
+    def _decode(
+        self, tokens: torch.Tensor, index: int
+    ) -> tuple[list[list[Event]], list[int]]:
+        """Convers a list of tokens into Event object lists and their timestamps.
+
+        Args:
+            tokens: List of tokens.
+            index: Index of current source sequence.
+
+        Returns:
+            events: List of Event object lists.
+            event_times: Corresponding event times of Event object lists in miliseconds.
+        """
+        events, event_times = [], []
+        for token in tokens:
+            if token == self.tokenizer.sos_id:
+                continue
+            elif token == self.tokenizer.eos_id:
+                break
+
+            event = self.tokenizer.decode(token)
+
+            if event.type == EventType.TIME_SHIFT:
+                timestamp = index * self.miliseconds_per_sequence + event.value
+                events.append([])
+                event_times.append(timestamp)
             else:
-                sequences.append(split_frames)
+                events[-1].append(event)
 
-        return sequences
+        return events, event_times
+
+    def _filter(
+        self, logits: torch.Tensor, top_p: float, filter_value: float = -float("Inf")
+    ) -> torch.Tensor:
+        """Filter a distribution of logits using nucleus (top-p) filtering.
+
+        Source: https://gist.github.com/thomwolf/1a5a29f6962089e871b94cbd09daf317
+        Nucleus filtering is described in Holtzman et al. (http://arxiv.org/abs/1904.09751)
+
+        Args:
+            logits: logits distribution shape (vocabulary size).
+            top_p >0.0: keep the top tokens with cumulative probability >= top_p (nucleus filtering).
+
+        Returns:
+            logits of top tokens.
+        """
+        if top_p > 0.0:
+            sorted_logits, sorted_indices = torch.sort(logits, descending=True)
+            cumulative_probs = torch.cumsum(F.softmax(sorted_logits, dim=-1), dim=-1)
+            # Remove tokens with cumulative probability above the threshold
+            sorted_indices_to_remove = cumulative_probs > top_p
+            # Shift the indices to the right to keep also the first token above the threshold
+            sorted_indices_to_remove[..., 1:] = sorted_indices_to_remove[
+                ..., :-1
+            ].clone()
+            sorted_indices_to_remove[..., 0] = 0
+
+            indices_to_remove = sorted_indices[sorted_indices_to_remove]
+            logits[indices_to_remove] = filter_value
+
+        return logits
+
+
+class Postprocessor(object):
+    def __init__(self):
+        """Generate a beatmap from a list of Event objects."""
 
 
 if __name__ == "__main__":
+    torch.set_grad_enabled(False)
+
     config = Config()
 
     checkpoint = torch.load(
-        "./lightning_logs/version_4/checkpoints/last.ckpt",
+        "./lightning_logs/checkpoint.ckpt",
         map_location=torch.device("cpu"),
     )
 
@@ -71,39 +188,11 @@ if __name__ == "__main__":
     model.eval()
 
     preprocessor = Preprocessor(config)
-    sequences = preprocessor.preprocess()
-    tokenizer = Tokenizer()
+    pipeline = Pipeline(config)
 
-    for index, frames in enumerate(sequences):
-        logging.info(f"processing frame: {index+1}/{len(frames)}")
+    audio = preprocessor.load("./audio.mp3")
+    sequences = preprocessor.segment(audio)
+    events, event_times = pipeline.generate(model, sequences)
 
-        with torch.no_grad():
-            tgt = torch.tensor([[tokenizer.sos_id]])
-
-            for i in range(255):
-                src = torch.unsqueeze(frames, 0)
-                logits = model.forward(src, tgt)
-                token = torch.argmax(logits, dim=1)
-                token = token[0, -1]
-
-                if token == tokenizer.eos_id:
-                    break
-
-                token = torch.tensor([[token]])
-                tgt = torch.cat([tgt, token], dim=1)
-
-        events = []
-        hit_object = []
-        for token in tgt[0, :]:
-            if token == tokenizer.eos_id or token == tokenizer.sos_id:
-                continue
-
-            event = tokenizer.decode(token)
-
-            if event.type == EventType.TIME_SHIFT and len(hit_object) > 0:
-                events.append(hit_object)
-                hit_object = []
-
-            hit_object.append(event)
-
-        events.append(hit_object)
+    print(events)
+    print(event_times)
