@@ -6,14 +6,13 @@ import numpy as np
 import pytorch_lightning as pl
 from torch.utils.data import DataLoader, get_worker_info
 
-from config.config import Config
 from .tokenizer import Tokenizer
 from .dataset import OszDataset
 from .loader import OszLoader
 
 
 class OszDataModule(pl.LightningDataModule):
-    def __init__(self, config: Config):
+    def __init__(self, config):
         super().__init__()
         self.config = config
         self.loader = OszLoader(

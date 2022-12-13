@@ -10,7 +10,7 @@ import numpy.typing as npt
 import torch
 from torch.utils.data import IterableDataset
 
-from .parser import parse_osu
+from .utils import parse_osu
 from .loader import OszLoader
 from .tokenizer import Tokenizer
 from .event import Event, EventType
