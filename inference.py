@@ -127,6 +127,7 @@ class Pipeline(object):
         events, event_times = [], []
 
         for batch_index, sources in enumerate(tqdm(sequences)):
+            unfinished = torch.LongTensor([[1] for _ in range(self.batch_size)])
             targets = torch.LongTensor(
                 [[self.tokenizer.sos_id] for _ in range(self.batch_size)]
             )
@@ -136,13 +137,24 @@ class Pipeline(object):
                 logits = logits[:, :, -1]
                 logits = self._filter(logits, 0.9)
                 probabilities = F.softmax(logits, dim=-1)
-                token = torch.multinomial(probabilities, 1)
+                tokens = torch.multinomial(probabilities, 1)
 
-                targets = torch.cat([targets, token], dim=-1)
+                # change next tokens of finished sentences to PAD token
+                tokens = tokens * unfinished + (self.tokenizer.pad_id) * (
+                    1 - unfinished
+                )
+                targets = torch.cat([targets, tokens], dim=-1)
+
+                # check if any sentence in batch has reached EOS, mark as finished
+                eos_in_sentence = tokens == self.tokenizer.eos_id
+                unfinished.mul_((~eos_in_sentence).long())
+
+                # stop preemptively when all sentences have finished
+                if unfinished.max() == 0:
+                    break
 
             for seq_index, target in enumerate(targets):
                 index = batch_index * self.batch_size + seq_index
-                print(index)
                 result = self._decode(target, index)
                 events += result[0]
                 event_times += result[1]
@@ -254,7 +266,6 @@ class Postprocessor(object):
         hit_object_strings = []
 
         for hit_object, timestamp in zip(events, event_times):
-            print(hit_object)
             x = hit_object[0].value
             y = hit_object[1].value
             hit_type = hit_object[2].type
