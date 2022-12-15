@@ -22,6 +22,15 @@ MILISECONDS_PER_SECOND = 1000
 
 
 @dataclasses.dataclass
+class InferenceConfig:
+    src_seq_len: int = 512
+    tgt_seq_len: int = 256
+    frame_size: int = 128
+    sample_rate: int = 16000
+    batch_size: int = 4
+
+
+@dataclasses.dataclass
 class BeatmapMetadata:
     audio_filename: str = "audio.mp3"
     title: str = "osu_beatmap"
@@ -46,12 +55,13 @@ class BeatmapTiming:
 
 
 class Preprocessor(object):
-    def __init__(self, config: Config):
+    def __init__(self, config: InferenceConfig):
         """Preprocess audio data into sequences."""
-        self.frame_seq_len = config.dataset.src_seq_len - 1
-        self.frame_size = config.spectrogram.hop_length
-        self.sample_rate = config.spectrogram.sample_rate
+        self.frame_seq_len = config.src_seq_len - 1
+        self.frame_size = config.frame_size
+        self.sample_rate = config.sample_rate
         self.samples_per_sequence = self.frame_seq_len * self.frame_size
+        self.batch_size = config.batch_size
 
     def load(self, path: str) -> npt.ArrayLike:
         """Load an audio file as audio frames. Convert stereo to mono, normalize.
@@ -69,44 +79,46 @@ class Preprocessor(object):
         samples *= 1.0 / np.max(np.abs(samples))
         return samples
 
-    def segment(self, samples: npt.ArrayLike) -> torch.Tensor:
+    def segment(self, samples: npt.ArrayLike) -> tuple[torch.Tensor]:
         """Segment audio samples into sequences. Sequences are flattened frames.
 
         Args:
             samples: Audio time-series.
 
         Returns:
-            sequences: Sequences each with `samples_per_sequence` samples.
+            sequences: A list of sequences of shape (batch size, samples per sequence).
         """
         samples = np.pad(
             samples,
             [0, self.samples_per_sequence - len(samples) % self.samples_per_sequence],
         )
         sequences = np.reshape(samples, (-1, self.samples_per_sequence))
-        return torch.from_numpy(sequences).to(torch.float32)
+        sequences = torch.from_numpy(sequences).to(torch.float32)
+        return torch.split(sequences, self.batch_size)
 
 
 class Pipeline(object):
-    def __init__(self, config: Config):
+    def __init__(self, config: InferenceConfig):
         """Model inference stage that processes sequences."""
         self.tokenizer = Tokenizer()
-        self.tgt_seq_len = config.dataset.tgt_seq_len
-        self.frame_seq_len = config.dataset.src_seq_len - 1
-        self.frame_size = config.spectrogram.hop_length
-        self.sample_rate = config.spectrogram.sample_rate
+        self.batch_size = config.batch_size
+        self.tgt_seq_len = config.tgt_seq_len
+        self.frame_seq_len = config.src_seq_len - 1
+        self.frame_size = config.frame_size
+        self.sample_rate = config.sample_rate
         self.samples_per_sequence = self.frame_seq_len * self.frame_size
         self.miliseconds_per_sequence = (
             self.samples_per_sequence * MILISECONDS_PER_SECOND / self.sample_rate
         )
 
     def generate(
-        self, model: OsuTransformer, sequences: torch.Tensor
+        self, model: OsuTransformer, sequences: tuple[torch.Tensor]
     ) -> tuple[list[list[Event]], list[int]]:
         """Generate a list of Event object lists and their timestamps given source sequences.
 
         Args:
             model: Trained model to use for inference.
-            sequences: Input source sequences.
+            sequences: A list of batched source sequences.
 
         Returns:
             events: List of Event object lists.
@@ -114,25 +126,26 @@ class Pipeline(object):
         """
         events, event_times = [], []
 
-        for index, sequence in enumerate(tqdm(sequences)):
-            src = torch.unsqueeze(sequence, 0)
-            tgt = torch.tensor([[self.tokenizer.sos_id]])
+        for batch_index, sources in enumerate(tqdm(sequences)):
+            targets = torch.LongTensor(
+                [[self.tokenizer.sos_id] for _ in range(self.batch_size)]
+            )
 
             for _ in tqdm(range(self.tgt_seq_len - 1), leave=False):
-                logits = model.forward(src, tgt)
-                logits = logits[0, :, -1]
+                logits = model.forward(sources, targets)
+                logits = logits[:, :, -1]
                 logits = self._filter(logits, 0.9)
                 probabilities = F.softmax(logits, dim=-1)
                 token = torch.multinomial(probabilities, 1)
 
-                if token == self.tokenizer.eos_id:
-                    break
+                targets = torch.cat([targets, token], dim=-1)
 
-                tgt = torch.cat([tgt, token.unsqueeze(-1)], dim=-1)
-
-            result = self._decode(tgt[0], index)
-            events += result[0]
-            event_times += result[1]
+            for seq_index, target in enumerate(targets):
+                index = batch_index * self.batch_size + seq_index
+                print(index)
+                result = self._decode(target, index)
+                events += result[0]
+                event_times += result[1]
 
         return events, event_times
 
@@ -159,7 +172,10 @@ class Pipeline(object):
             event = self.tokenizer.decode(token.item())
 
             if event.type == EventType.TIME_SHIFT:
-                timestamp = index * self.miliseconds_per_sequence + event.value
+                timestamp = (
+                    index * self.miliseconds_per_sequence
+                    + event.value * MILISECONDS_PER_STEP
+                )
                 events.append([])
                 event_times.append(timestamp)
             else:
@@ -176,31 +192,36 @@ class Pipeline(object):
         Nucleus filtering is described in Holtzman et al. (http://arxiv.org/abs/1904.09751)
 
         Args:
-            logits: logits distribution shape (vocabulary size).
+            logits: logits distribution of shape (batch size, vocabulary size).
             top_p >0.0: keep the top tokens with cumulative probability >= top_p (nucleus filtering).
 
         Returns:
             logits of top tokens.
         """
-        if top_p > 0.0:
+        if 0.0 < top_p < 1.0:
             sorted_logits, sorted_indices = torch.sort(logits, descending=True)
             cumulative_probs = torch.cumsum(F.softmax(sorted_logits, dim=-1), dim=-1)
-            # Remove tokens with cumulative probability above the threshold
+
+            # Remove tokens with cumulative probability above the threshold (token with 0 are kept)
             sorted_indices_to_remove = cumulative_probs > top_p
+
             # Shift the indices to the right to keep also the first token above the threshold
             sorted_indices_to_remove[..., 1:] = sorted_indices_to_remove[
                 ..., :-1
             ].clone()
             sorted_indices_to_remove[..., 0] = 0
 
-            indices_to_remove = sorted_indices[sorted_indices_to_remove]
+            # scatter sorted tensors to original indexing
+            indices_to_remove = sorted_indices_to_remove.scatter(
+                1, sorted_indices, sorted_indices_to_remove
+            )
             logits[indices_to_remove] = filter_value
 
         return logits
 
 
 class Postprocessor(object):
-    def __init__(self, config: Config):
+    def __init__(self, config: InferenceConfig):
         """Postprocessing stage that converts a list of Event objects to a beatmap file."""
         self.curve_types = {
             EventType.SLIDER_BEZIER: "B",
@@ -283,14 +304,11 @@ class Postprocessor(object):
 if __name__ == "__main__":
     torch.set_grad_enabled(False)
 
-    config = Config()
+    config = InferenceConfig()
 
-    checkpoint = torch.load(
-        "./checkpoint.ckpt",
-        map_location=torch.device("cpu"),
-    )
+    checkpoint = torch.load("./checkpoint.ckpt")
 
-    model = OsuTransformer(config)
+    model = OsuTransformer(Config())
     model.load_state_dict(checkpoint["state_dict"])
     model.eval()
 
