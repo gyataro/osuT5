@@ -16,7 +16,7 @@ The model uses Mel spectrogram frames as encoder input, with one frame per input
 
 ## Usage
 
-Coming soon.
+You can try out the model on [Colab](https://colab.research.google.com/drive/1HJhyPwhf4uBJt4zbk2BwfXoVU_6mpmfW?usp=sharing).
 
 ## Training
 
