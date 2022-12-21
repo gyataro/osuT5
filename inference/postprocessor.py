@@ -1,4 +1,5 @@
 from __future__ import annotations
+import os
 import uuid
 import dataclasses
 from string import Template
@@ -7,7 +8,7 @@ from inference.config import Config, BeatmapMetadata, BeatmapDifficulty, Beatmap
 from utils.event import Event, EventType
 
 OSU_FILE_EXTENSION = ".osu"
-OSU_TEMPLATE_PATH = "./template.osu"
+OSU_TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), "template.osu")
 
 
 class Postprocessor(object):
@@ -44,6 +45,9 @@ class Postprocessor(object):
         hit_object_strings = []
 
         for hit_object, timestamp in zip(events, event_times):
+            if len(hit_object) < 3:
+                continue
+
             x = hit_object[0].value
             y = hit_object[1].value
             hit_type = hit_object[2].type
