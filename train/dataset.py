@@ -10,10 +10,10 @@ import numpy.typing as npt
 import torch
 from torch.utils.data import IterableDataset
 
-from .utils import parse_osu
-from .loader import OszLoader
-from .tokenizer import Tokenizer
-from .event import Event, EventType
+from train.parse import parse_osu
+from train.loader import OszLoader
+from utils.tokenizer import Tokenizer
+from utils.event import Event, EventType
 
 OSZ_FILE_EXTENSION = ".osz"
 MILISECONDS_PER_SECOND = 1000

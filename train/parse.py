@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from .event import Event, EventType
+from utils.event import Event, EventType
 
 
 def parse_osu(beatmap: list[str]) -> tuple[list[list[Event]], list[int]]:

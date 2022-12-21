@@ -6,9 +6,9 @@ import numpy as np
 import pytorch_lightning as pl
 from torch.utils.data import DataLoader, get_worker_info
 
-from .tokenizer import Tokenizer
-from .dataset import OszDataset
-from .loader import OszLoader
+from utils.tokenizer import Tokenizer
+from train.dataset import OszDataset
+from train.loader import OszLoader
 
 
 class OszDataModule(pl.LightningDataModule):

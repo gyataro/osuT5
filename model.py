@@ -8,15 +8,16 @@ from torchmetrics.classification import MulticlassF1Score
 
 from module.transformer import Transformer
 from module.spectrogram import MelSpectrogram
-from optimization.optimizer import Adafactor
-from optimization.scheduler import get_cosine_schedule_with_warmup
-from data.tokenizer import Tokenizer
+from train.config import Config
+from train.optimizer import Adafactor
+from train.scheduler import get_cosine_schedule_with_warmup
+from utils.tokenizer import Tokenizer
 
 filterwarnings("ignore", ".*does not have many workers.*")
 
 
 class OsuTransformer(pl.LightningModule):
-    def __init__(self, config):
+    def __init__(self, config=Config()):
         super().__init__()
         self.save_hyperparameters(config)
         self.tokenizer = Tokenizer()
@@ -50,11 +51,15 @@ class OsuTransformer(pl.LightningModule):
         self.config = config
 
     def forward(self, source, target):
+        source = source.to(self.device)
+        target = target.to(self.device)
+
         source = self.spectrogram.forward(source)
-        tgt_mask = self.transformer.get_subsequent_mask(target.shape[1])
+        tgt_mask = self.transformer.get_subsequent_mask(target.shape[1]).to(self.device)
         tgt_key_padding_mask = self.transformer.get_padding_mask(
             target, self.tokenizer.pad_id
-        )
+        ).to(self.device)
+
         logits = self.transformer.forward(
             source, target, tgt_mask, tgt_key_padding_mask
         )
@@ -68,9 +73,9 @@ class OsuTransformer(pl.LightningModule):
         frames = torch.flatten(frames, start_dim=1)
         source = self.spectrogram.forward(frames)
 
-        tgt_mask = self.tgt_mask.to(target.device)
+        tgt_mask = self.tgt_mask.to(self.device)
         tgt_key_padding_mask = Transformer.get_padding_mask(target, self.pad_id).to(
-            target.device
+            self.device
         )
 
         logits = self.transformer.forward(

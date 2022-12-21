@@ -1,13 +1,12 @@
 from __future__ import annotations
-from warnings import filterwarnings
 
 import torch
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint, LearningRateMonitor
 
 from model import OsuTransformer
-from config.config import Config
-from data.datamodule import OszDataModule
+from train.config import Config
+from train.datamodule import OszDataModule
 
 config = Config()
 datamodule = OszDataModule(config)

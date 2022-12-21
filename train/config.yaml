@@ -1,7 +1,7 @@
 seed: 42
 
 train:
-  num_steps: 300000
+  total_steps: 300000
   session_steps: 40000
   warmup_steps: 1000
   lr: 0.0003
@@ -13,8 +13,8 @@ val:
   batches: 50
 
 dataset:
-  train: "./data/train"
-  val: "./data/validate"
+  train: "./dataset/train"
+  val: "./dataset/validate"
   batch_size: 32
   num_workers: 4
   src_seq_len: 512

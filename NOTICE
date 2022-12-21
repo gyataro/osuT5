@@ -3,8 +3,8 @@ All other files are covered by the MIT license. See LICENSE.
 
 ---
 
-Hugging Face Constant Scheduler w/ Warmup
-https://github.com/huggingface/transformers/blob/main/src/transformers/optimization.py#L50
+Hugging Face Cosine Scheduler w/ Warmup
+https://github.com/huggingface/transformers/blob/main/src/transformers/optimization.py#L104
 
 Hugging Face Adafactor Optimizer
 https://github.com/huggingface/transformers/blob/main/src/transformers/optimization.py#L386
