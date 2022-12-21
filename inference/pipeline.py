@@ -54,7 +54,7 @@ class Pipeline(object):
                 tokens = torch.multinomial(probabilities, 1)
 
                 # change next tokens of finished sentences to PAD token
-                tokens = tokens * unfinished + (self.tokenizer.pad_id) * (
+                tokens = tokens.cpu() * unfinished + (self.tokenizer.pad_id) * (
                     1 - unfinished
                 )
                 targets = torch.cat([targets, tokens], dim=-1)
