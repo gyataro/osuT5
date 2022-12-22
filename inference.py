@@ -1,5 +1,5 @@
 from __future__ import annotations
-
+import os
 import argparse
 
 import torch
@@ -55,12 +55,13 @@ if __name__ == "__main__":
     preprocessor = Preprocessor(config)
     postprocessor = Postprocessor(config)
 
+    audio_filename = os.path.basename(config.audio_path)
     audio = preprocessor.load(config.audio_path)
     sequences = preprocessor.segment(audio)
     events, event_times = pipeline.generate(model, sequences)
 
     beat_length = 60000 / args.bpm
-    beatmap_metadata = BeatmapMetadata()
+    beatmap_metadata = BeatmapMetadata(audio_filename)
     beatmap_difficulty = BeatmapDifficulty()
     beatmap_timing = BeatmapTiming(offset=args.offset, beat_length=beat_length)
     postprocessor.generate(
