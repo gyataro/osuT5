@@ -1,6 +1,6 @@
 # osuTransformer
 
-osuTransformer is a transformer-based encoder-decoder that can learn to convert spectrogram inputs to osu! hit-object output events. The goal of this project is to create a model that automatically generates beatmaps for any song.
+osuTransformer is a transformer-based encoder-decoder that uses spectrogram inputs to generate osu! hit-object output events. The goal of this project is to automatically generate osu! beatmaps from any song.
 
 This project is heavily inspired by Google Magenta's [MT3](https://github.com/magenta/mt3), quoting their [paper](https://magenta.tensorflow.org/transcription-with-transformers):
 
@@ -57,6 +57,10 @@ All configurations are located in `./config/config.yaml`. Begin training by call
 ```sh
 python train.py
 ```
+
+## Credits
+
+Special thanks to the authors of [nanoT5](https://github.com/PiotrNawrot/nanoT5/tree/main) for their T5 training code and the Hugging Face team for their [tools](https://huggingface.co/docs/transformers/index). 
 
 ## Related Works
 

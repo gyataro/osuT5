@@ -1,0 +1,65 @@
+defaults:
+  - _self_
+
+mode: 'pt'
+device: gpu
+precision: 'bf16'
+eval_only: false
+predict_only: false
+seed: 42
+
+model:
+  name: 'google/t5-v1_1-small'
+  overwrite:
+    dropout_rate: 0.0
+  add_config:
+    is_bf16: false
+    sample_rate: ${data.spectrogram.sample_rate}
+    hop_length: ${data.spectrogram.hop_length}
+    n_fft: ${data.spectrogram.n_fft}
+    n_mels: ${data.spectrogram.n_mels}
+  checkpoint_path: ''
+  random_init: true
+  compile: false
+
+data:
+  max_seq_len: 512
+  max_target_len: 256
+  num_workers: 8
+  train_dataset_path: ''
+  test_dataset_path: ''
+  spectrogram:
+    sample_rate: 16000
+    hop_length: 128
+    n_fft: 2048
+    n_mels: 512
+
+optim:
+  name: adafactor
+  base_lr: 2e-2
+  batch_size: 32
+  total_steps: 65536
+  warmup_steps: 10000
+  lr_scheduler: cosine
+  weight_decay: 0.0
+  grad_clip: 1.0
+  grad_acc: 4
+  final_cosine: 1e-5
+
+eval:
+  every_steps: 100000
+  steps: 500
+
+checkpoint:
+  every_steps: 100000
+
+logging:
+  every_steps: 100
+  grad_l2: true
+  weights_l2: true
+
+hydra:
+  job:
+    chdir: True
+  run:
+    dir: ./logs/${now:%Y-%m-%d}/${now:%H-%M-%S}

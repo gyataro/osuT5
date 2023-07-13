@@ -10,9 +10,8 @@ import numpy.typing as npt
 import torch
 from torch.utils.data import IterableDataset
 
-from train.parse import parse_osu
-from train.loader import OszLoader
-from utils.tokenizer import Tokenizer
+from .osu_parser import OsuParser
+from .osz_loader import OszLoader
 from utils.event import Event, EventType
 
 OSZ_FILE_EXTENSION = ".osz"
@@ -24,18 +23,16 @@ class OszDataset(IterableDataset):
     def __init__(
         self,
         path: str,
-        loader: OszLoader,
-        tokenizer: Tokenizer,
-        sample_rate: int,
-        frame_size: int,
-        src_seq_len: int,
-        tgt_seq_len: int,
+        tokenizer: type,
+        sample_rate: int = 16000,
+        frame_size: int = 16000,
+        src_seq_len: int = 128,
+        tgt_seq_len: int = 256,
     ):
         """Manage and process .osz archives.
 
         Attributes:
             path: Location of .osz files to load.
-            loader: Instance of Loader class.
             tokenizer: Instance of Tokenizer class.
             sample_rate: Sampling rate of audio file (samples/second).
             frame_size: Samples per audio frame (samples/frame).
@@ -47,7 +44,8 @@ class OszDataset(IterableDataset):
             glob(f"{path}/**/*{OSZ_FILE_EXTENSION}", recursive=True), dtype=np.string_
         )
         np.random.shuffle(self.dataset)
-        self.loader = loader
+        self.loader = OszLoader()
+        self.parser = OsuParser()
         self.tokenizer = tokenizer
         self.sample_rate = sample_rate
         self.frame_size = frame_size
@@ -345,7 +343,7 @@ class OszDataset(IterableDataset):
                     continue
 
                 frames, frame_times = self._get_frames(audio_samples)
-                events, event_times = parse_osu(osu_beatmap)
+                events, event_times = self.parser.parse(osu_beatmap)
 
                 (
                     event_tokens,

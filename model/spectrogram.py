@@ -6,7 +6,13 @@ from nnAudio import features
 
 
 class MelSpectrogram(nn.Module):
-    def __init__(self, sample_rate: int, n_ftt: int, n_mels: int, hop_length: int):
+    def __init__(
+        self,
+        sample_rate: int = 16000,
+        n_ftt: int = 2048,
+        n_mels: int = 512,
+        hop_length: int = 128,
+    ):
         """
         Melspectrogram transformation layer, supports on-the-fly processing on GPU.
 

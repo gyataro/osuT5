@@ -33,3 +33,17 @@ class Event:
 
     def __str__(self) -> str:
         return f"{self.type.value}{self.value}"
+
+
+def get_event_ranges() -> list[EventRange]:
+    return [
+        EventRange(EventType.TIME_SHIFT, 0, 512),
+        EventRange(EventType.POINT, 0, 512),
+        EventRange(EventType.CIRCLE, 0, 0),
+        EventRange(EventType.SLIDER_BEZIER, 0, 0),
+        EventRange(EventType.SLIDER_CATMULI, 0, 0),
+        EventRange(EventType.SLIDER_LINEAR, 0, 0),
+        EventRange(EventType.SLIDER_PERFECT_CIRCLE, 0, 0),
+        EventRange(EventType.CONTROL_POINT, -128, 640),
+        EventRange(EventType.SLIDES, 0, 100),
+    ]
