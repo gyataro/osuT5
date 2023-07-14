@@ -23,6 +23,10 @@ def forward(model: T5, batch):
     return loss, stats
 
 
+def add_prefix(prefix: str, stats: dict[str, float]):
+    return {f"{prefix}/{k}": v for k, v in stats.items()}
+
+
 def maybe_save_checkpoint(accelerator: Accelerator, args: DictConfig):
     if (
         args.current_train_step > args.optim.total_steps
@@ -55,7 +59,7 @@ def maybe_logging(
     model: T5,
     accelerator: Accelerator,
     optimizer: Optimizer,
-    averager,
+    averager: Averager,
     args: DictConfig,
 ):
     def extra_stats(args, model, optimizer):
@@ -79,7 +83,7 @@ def maybe_logging(
 
         averager.update(stats)
         averaged_stats = averager.average()
-
+        averaged_stats = add_prefix("train", averaged_stats)
         accelerator.log(averaged_stats, step=args.current_train_step)
 
         args.last_log = time.time()
@@ -131,8 +135,7 @@ def eval(
 
     averager.update({"time": time.time() - args.last_log})
     averaged_stats = averager.average()
-
-    # TODO: differentiate test and train logging
+    averaged_stats = add_prefix("test", averaged_stats)
     accelerator.log(averaged_stats, step=args.current_train_step)
 
 
