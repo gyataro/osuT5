@@ -8,9 +8,9 @@ from torch.optim.lr_scheduler import LRScheduler
 from accelerate import Accelerator
 from omegaconf import DictConfig
 
-from .tokenizer import Tokenizer
 from .log_utils import Averager
-from ..model import T5
+from osuT5.model import T5
+from osuT5.tokenizer import Tokenizer
 
 
 def forward(model: T5, batch):

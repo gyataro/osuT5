@@ -1,11 +1,11 @@
 from accelerate import Accelerator
-from accelerate.utils import LoggerType
+from accelerate.utils import LoggerType, ProjectConfiguration
 from omegaconf import open_dict, DictConfig
 import hydra
 import torch
 import time
 
-from .utils import (
+from osuT5.utils import (
     setup_args,
     train,
     get_config,
@@ -23,6 +23,9 @@ def main(args: DictConfig):
         cpu=args.device == "cpu",
         mixed_precision=args.precision,
         log_with=LoggerType.TENSORBOARD,
+        project_config=ProjectConfiguration(
+            project_dir=".", logging_dir="tensorboard_logs"
+        ),
     )
 
     setup_args(args)

@@ -12,7 +12,7 @@ from torch.utils.data import IterableDataset
 
 from .osu_parser import OsuParser
 from .osz_loader import OszLoader
-from utils.event import Event, EventType
+from osuT5.tokenizer import Event, EventType
 
 OSZ_FILE_EXTENSION = ".osz"
 MILISECONDS_PER_SECOND = 1000

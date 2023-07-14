@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from utils.event import Event, EventType
+from osuT5.tokenizer import Event, EventType
 
 
 class OsuParser:

@@ -11,9 +11,9 @@ from torch.optim.lr_scheduler import (
     CosineAnnealingLR,
 )
 
-from ..model import T5
-from ..dataset import OszDataset
-from .tokenizer import Tokenizer
+from osuT5.model import T5
+from osuT5.dataset import OszDataset
+from osuT5.tokenizer import Tokenizer
 
 
 def get_config(args: DictConfig) -> T5Config:

@@ -1,6 +1,6 @@
-# osuTransformer
+# osuT5
 
-osuTransformer is a transformer-based encoder-decoder that uses spectrogram inputs to generate osu! hit-object output events. The goal of this project is to automatically generate osu! beatmaps from any song.
+osuT5 is a transformer-based encoder-decoder that uses spectrogram inputs to generate osu! hit-object output events. The goal of this project is to automatically generate osu! beatmaps from any song.
 
 This project is heavily inspired by Google Magenta's [MT3](https://github.com/magenta/mt3), quoting their [paper](https://magenta.tensorflow.org/transcription-with-transformers):
 
