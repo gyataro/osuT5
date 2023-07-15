@@ -154,9 +154,6 @@ def train(
     train_averager = Averager()
 
     while args.current_train_step <= args.optim.total_steps:
-        if isinstance(train_dataloader.dataset, IterableDataset):
-            train_dataloader.dataset.set_epoch(args.current_epoch)
-
         # In case there is a remainder from previous epoch, we need to reset the optimizer
         optimizer.zero_grad(set_to_none=True)
 

@@ -37,7 +37,7 @@ class Event:
 
 def get_event_ranges() -> list[EventRange]:
     return [
-        EventRange(EventType.TIME_SHIFT, 0, 512),
+        EventRange(EventType.TIME_SHIFT, 0, 1024),
         EventRange(EventType.POINT, 0, 512),
         EventRange(EventType.CIRCLE, 0, 0),
         EventRange(EventType.SLIDER_BEZIER, 0, 0),
