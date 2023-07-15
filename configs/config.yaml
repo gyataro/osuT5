@@ -3,7 +3,7 @@ defaults:
 
 mode: 'pt'
 device: gpu
-precision: 'bf16'
+precision: 'fp16'
 eval_only: false
 predict_only: false
 seed: 42

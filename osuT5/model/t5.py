@@ -476,10 +476,9 @@ class T5(nn.Module):
         self.config = config
         self.model_dim = config.d_model
 
-        self.spectrogram = MelSpectrogram(
+        self.encoder_embedder = MelSpectrogram(
             config.sample_rate, config.n_fft, config.n_mels, config.hop_length
         )
-        self.encoder_embedder = nn.Linear(config.n_mels, config.d_model, bias=False)
         self.decoder_embedder = nn.Embedding(config.vocab_size, config.d_model)
 
         encoder_config = copy.deepcopy(config)
@@ -557,8 +556,6 @@ class T5(nn.Module):
             1 for tokens to attend to, 0 for tokens to ignore
         labels: B x L_decoder, int64
         """
-        input_ids = self.spectrogram.forward(input_ids)
-
         if encoder_outputs is None:
             encoder_outputs = self.encoder(
                 input_ids=input_ids,
@@ -598,7 +595,7 @@ class T5(nn.Module):
         if isinstance(module, T5LayerNorm):
             module.weight.data.fill_(factor * 1.0)
         elif isinstance(module, (T5)):
-            module.shared.weight.data.normal_(mean=0.0, std=factor * 1.0)
+            module.decoder_embedder.weight.data.normal_(mean=0.0, std=factor * 1.0)
             if hasattr(module, "lm_head") and not self.config.tie_word_embeddings:
                 module.lm_head.weight.data.normal_(mean=0.0, std=factor * 1.0)
         elif isinstance(module, T5DenseGatedActDense):
