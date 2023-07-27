@@ -1,28 +1,18 @@
 from __future__ import annotations
 
-from .event import Event, EventType, EventRange
+from .event import get_event_ranges, Event, EventType
 
 
 class Tokenizer:
     def __init__(self):
         """Fixed vocabulary tokenizer."""
         self._offset = 4
-        self._event_ranges = [
-            EventRange(EventType.TIME_SHIFT, 0, 512),
-            EventRange(EventType.POINT, 0, 512),
-            EventRange(EventType.CIRCLE, 0, 0),
-            EventRange(EventType.SLIDER_BEZIER, 0, 0),
-            EventRange(EventType.SLIDER_CATMULI, 0, 0),
-            EventRange(EventType.SLIDER_LINEAR, 0, 0),
-            EventRange(EventType.SLIDER_PERFECT_CIRCLE, 0, 0),
-            EventRange(EventType.CONTROL_POINT, -128, 640),
-            EventRange(EventType.SLIDES, 0, 100),
-        ]
+        self._event_ranges = get_event_ranges()
 
     @property
     def pad_id(self) -> int:
         """[PAD] token for padding."""
-        return 0
+        return -100
 
     @property
     def sos_id(self) -> int:

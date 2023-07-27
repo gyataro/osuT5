@@ -18,10 +18,10 @@ MAX_DIFFICULY = 10
 class OszLoader(object):
     def __init__(
         self,
-        sample_rate: int,
-        min_difficulty: float,
-        max_difficulty: float,
-        mode: str,
+        sample_rate: int = 16000,
+        min_difficulty: float = 0,
+        max_difficulty: float = 10,
+        mode: str = "center",
         **kwargs,
     ):
         """Load .osz archives.

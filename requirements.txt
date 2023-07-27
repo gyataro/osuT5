@@ -1,4 +1,7 @@
-nnAudio~=0.3
-PyYAML~=6.0
-pydub~=0.25
-pytorch-lightning~=1.7
+accelerate
+pydub
+nnAudio
+PyYAML
+transformers
+hydra-core
+tensorboard

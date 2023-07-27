@@ -1,45 +1,72 @@
-from __future__ import annotations
-
+from accelerate import Accelerator
+from accelerate.utils import LoggerType, ProjectConfiguration
+from omegaconf import open_dict, DictConfig
+import hydra
 import torch
-import pytorch_lightning as pl
-from pytorch_lightning.callbacks import ModelCheckpoint, LearningRateMonitor
+import time
 
-from model import OsuTransformer
-from train.config import Config
-from train.datamodule import OszDataModule
+from osuT5.utils import (
+    setup_args,
+    train,
+    get_config,
+    get_model,
+    get_tokenizer,
+    get_scheduler,
+    get_optimizer,
+    get_dataloaders,
+)
 
-config = Config()
-datamodule = OszDataModule(config)
+
+@hydra.main(config_path="configs", config_name="config", version_base="1.1")
+def main(args: DictConfig):
+    accelerator = Accelerator(
+        cpu=args.device == "cpu",
+        mixed_precision=args.precision,
+        log_with=LoggerType.TENSORBOARD,
+        project_config=ProjectConfiguration(
+            project_dir=".", logging_dir="tensorboard_logs"
+        ),
+    )
+    accelerator.init_trackers("project")
+
+    setup_args(args)
+
+    config = get_config(args)
+    model = get_model(args, config)
+    tokenizer = get_tokenizer()
+    optimizer = get_optimizer(model, args)
+    scheduler = get_scheduler(optimizer, args)
+    train_dataloader, test_dataloader = get_dataloaders(tokenizer, args)
+
+    (
+        model,
+        optimizer,
+        scheduler,
+        train_dataloader,
+        test_dataloader,
+    ) = accelerator.prepare(
+        model, optimizer, scheduler, train_dataloader, test_dataloader
+    )
+
+    if args.model.compile:
+        model = torch.compile(model)
+
+    with open_dict(args):
+        args.current_train_step = 1
+        args.current_epoch = 1
+        args.last_log = time.time()
+
+    train(
+        model,
+        train_dataloader,
+        test_dataloader,
+        accelerator,
+        scheduler,
+        optimizer,
+        tokenizer,
+        args,
+    )
+
 
 if __name__ == "__main__":
-    torch.multiprocessing.set_start_method("spawn", force=True)
-    pl.seed_everything(config.seed)
-
-    if config.train.resume:
-        model = OsuTransformer.load_from_checkpoint(
-            checkpoint_path=config.train.resume_checkpoint_path,
-            config=config,
-        )
-    else:
-        model = OsuTransformer(config)
-
-    lr_monitor = LearningRateMonitor(logging_interval="step")
-    model_checkpoint = ModelCheckpoint(
-        monitor="f1_score",
-        mode="max",
-        save_last=True,
-        save_top_k=3,
-        save_weights_only=False,
-        filename="{step}-{f1_score:.2f}",
-    )
-
-    trainer = pl.Trainer(
-        precision=32,
-        callbacks=[lr_monitor, model_checkpoint],
-        accelerator="auto",
-        max_steps=config.train.session_steps,
-        val_check_interval=config.val.interval,
-        limit_val_batches=config.val.batches,
-    )
-
-    trainer.fit(model, datamodule=datamodule)
+    main()
