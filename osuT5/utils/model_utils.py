@@ -29,6 +29,8 @@ def get_config(args: DictConfig) -> T5Config:
             assert not hasattr(config, k), f"config already has attribute {k}"
             setattr(config, k, v)
 
+    tokenizer = Tokenizer()
+    setattr(config, "vocab_size", tokenizer.vocab_size())
     return config
 
 
