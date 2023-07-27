@@ -27,6 +27,7 @@ def main(args: DictConfig):
             project_dir=".", logging_dir="tensorboard_logs"
         ),
     )
+    accelerator.init_trackers("project")
 
     setup_args(args)
 
