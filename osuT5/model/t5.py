@@ -543,29 +543,29 @@ class T5(nn.Module):
 
     def forward(
         self,
-        input_ids: Optional[torch.LongTensor] = None,
+        frames: Optional[torch.LongTensor] = None,
         attention_mask: Optional[torch.FloatTensor] = None,
         decoder_input_ids: Optional[torch.LongTensor] = None,
         decoder_attention_mask: Optional[torch.BoolTensor] = None,
-        labels: Optional[torch.LongTensor] = None,
+        tokens: Optional[torch.LongTensor] = None,
         encoder_outputs=None,
     ) -> Seq2SeqLMOutput:
         """
-        input_ids: B x L_encoder x mel_bins, int64
+        frames: B x L_encoder x mel_bins, int64
         attention_mask: B x L_encoder, int64
             1 for tokens to attend to, 0 for tokens to ignore
-        labels: B x L_decoder, int64
+        tokens: B x L_decoder, int64
         """
         if encoder_outputs is None:
             encoder_outputs = self.encoder(
-                input_ids=input_ids,
+                frames,
                 attention_mask=attention_mask,
             )
 
         hidden_states = encoder_outputs.hidden_states
 
-        if labels is not None and decoder_input_ids is None:
-            decoder_input_ids = self._shift_right(labels)
+        if tokens is not None and decoder_input_ids is None:
+            decoder_input_ids = self._shift_right(tokens)
 
         decoder_outputs = self.decoder(
             input_ids=decoder_input_ids,
@@ -578,9 +578,9 @@ class T5(nn.Module):
         lm_logits = self.lm_head(sequence_output)
 
         loss = None
-        if labels is not None:
+        if tokens is not None:
             loss_fct = CrossEntropyLoss(ignore_index=-100)
-            loss = loss_fct(lm_logits.view(-1, lm_logits.size(-1)), labels.view(-1))
+            loss = loss_fct(lm_logits.view(-1, lm_logits.size(-1)), tokens.view(-1))
 
         return Seq2SeqLMOutput(
             loss=loss,

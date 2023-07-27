@@ -25,8 +25,8 @@ class OszDataset(IterableDataset):
         path: str,
         tokenizer: type,
         sample_rate: int = 16000,
-        frame_size: int = 16000,
-        src_seq_len: int = 128,
+        frame_size: int = 128,
+        src_seq_len: int = 512,
         tgt_seq_len: int = 256,
     ):
         """Manage and process .osz archives.
