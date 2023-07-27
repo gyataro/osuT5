@@ -477,9 +477,10 @@ class T5(nn.Module):
         self.config = config
         self.model_dim = config.d_model
 
-        self.encoder_embedder = MelSpectrogram(
+        self.spectrogram = MelSpectrogram(
             config.sample_rate, config.n_fft, config.n_mels, config.hop_length
         )
+        self.encoder_embedder = nn.Linear(config.n_mels, config.d_model)
         self.decoder_embedder = nn.Embedding(config.vocab_size, config.d_model)
 
         encoder_config = copy.deepcopy(config)
@@ -558,6 +559,7 @@ class T5(nn.Module):
         tokens: B x L_decoder, int64
         """
         if encoder_outputs is None:
+            frames = self.spectrogram(frames)
             encoder_outputs = self.encoder(
                 frames,
                 attention_mask=attention_mask,

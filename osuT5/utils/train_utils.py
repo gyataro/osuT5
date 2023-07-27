@@ -86,6 +86,7 @@ def maybe_logging(
         averaged_stats = averager.average()
         averaged_stats = add_prefix("train", averaged_stats)
         accelerator.log(averaged_stats, step=args.current_train_step)
+        print(averaged_stats)
 
         args.last_log = time.time()
 
@@ -176,7 +177,7 @@ def train(
                 optimizer.zero_grad(set_to_none=True)
 
                 maybe_logging(model, accelerator, optimizer, train_averager, args)
-                maybe_eval(model, accelerator, test_dataloader, tokenizer, args)
+                maybe_eval(model, accelerator, test_dataloader, args)
                 maybe_save_checkpoint(accelerator, args)
 
                 args.current_train_step += 1
