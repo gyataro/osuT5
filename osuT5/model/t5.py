@@ -386,7 +386,8 @@ class T5Stack(nn.Module, ModuleUtilsMixin):
         encoder_attention_mask=None,
     ) -> EncoderOutput:
         input_shape = input_ids.size()
-        batch_size, seq_length = input_shape
+        batch_size = input_shape[0]
+        seq_length = input_shape[1]
 
         inputs_embeds = self.embed_tokens(input_ids)
 
