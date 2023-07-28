@@ -286,6 +286,7 @@ class OszDataset(IterableDataset):
         padded_tokens[0:n] = tokens[:n]
         padded_tokens[n : n + 1] = eos
         sequence["tokens"] = padded_tokens
+        sequence["decoder_attention_mask"] = padded_tokens != self.tokenizer.pad_id
         return sequence
 
     def _pad_frame_sequence(self, sequence):
@@ -357,8 +358,8 @@ class OszDataset(IterableDataset):
                     sequence = self._merge_time_step_tokens(sequence)
                     sequence = self._pad_frame_sequence(sequence)
                     sequence = self._pad_token_sequence(sequence)
-                    if sequence["tokens"][1] == self.tokenizer.eos_id:
-                        continue
+                    # if sequence["tokens"][1] == self.tokenizer.eos_id:
+                    #    continue
                     yield sequence
 
     def __iter__(self):

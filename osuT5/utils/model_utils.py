@@ -31,9 +31,6 @@ def get_config(args: DictConfig) -> T5Config:
 
     tokenizer = Tokenizer()
     setattr(config, "vocab_size", tokenizer.vocab_size())
-    setattr(config, "decoder_start_token_id", tokenizer.sos_id)
-    setattr(config, "eos_token_id", tokenizer.eos_id)
-    setattr(config, "pad_token_id", tokenizer.pad_id)
     return config
 
 
