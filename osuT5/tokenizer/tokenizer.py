@@ -12,7 +12,7 @@ class Tokenizer:
     @property
     def pad_id(self) -> int:
         """[PAD] token for padding."""
-        return -100
+        return 0
 
     @property
     def sos_id(self) -> int:

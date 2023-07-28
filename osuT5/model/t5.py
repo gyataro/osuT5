@@ -499,28 +499,29 @@ class T5(nn.Module):
 
     def generate(
         self,
-        input_ids: Optional[torch.LongTensor] = None,
+        frames: Optional[torch.LongTensor] = None,
         attention_mask: Optional[torch.FloatTensor] = None,
         max_length=None,
         **kwargs,
     ) -> torch.LongTensor:
         """
-        input_ids: B x L_encoder x mel_bins, int64
+        frames: B x L_encoder x mel_bins, float32
         attention_mask: B x L_encoder, int64
             1 for tokens to attend to, 0 for tokens to ignore
 
         Generation:
-            Starts with 0, ends with 1, padding is 0
-
-        # For 20 input/outputs, the diff between my implementation and HF is 9.8s vs 11.4s
+            Starts with [SOS], ends with [EOS], padding is [PAD] (see Tokenizer)
         """
-        B, _, _ = input_ids.size()
-        labels = torch.zeros(B, 1, dtype=torch.long, device=input_ids.device)
+        B, _, _ = frames.size()
+        SOS_TOKEN_ID = self.config.decoder_start_token_id
+        PAD_TOKEN_ID = self.config.pad_token_id
+        EOS_TOKEN_ID = self.config.eos_token_id
+        labels = torch.ones(B, 1, dtype=torch.long, device=frames.device) * SOS_TOKEN_ID
         encoder_outputs = None
 
         for _ in range(max_length):
             out = self.forward(
-                input_ids=input_ids,
+                frames=frames,
                 attention_mask=attention_mask,
                 decoder_input_ids=labels,
                 encoder_outputs=encoder_outputs,
@@ -529,17 +530,17 @@ class T5(nn.Module):
             top_labels = out.logits[:, -1].argmax(-1).unsqueeze(-1)
             labels = torch.cat([labels, top_labels], dim=-1)
 
-            if (labels == 1).sum(-1).clamp(min=0, max=1).sum().item() == B:
+            if (labels == EOS_TOKEN_ID).sum(-1).clamp(min=0, max=1).sum().item() == B:
                 break
 
-        labels[:, -1] = 1
+        labels[:, -1] = EOS_TOKEN_ID
 
         # Mask out the padding, i.e., all positions after the first 1 with 0
         B, L = labels.size()
         mask = torch.arange(L, device=labels.device).unsqueeze(0) <= (
-            labels == 1
+            labels == EOS_TOKEN_ID
         ).long().argmax(-1).unsqueeze(-1)
-        labels = labels.masked_fill(~mask, 0)
+        labels = labels.masked_fill(~mask, PAD_TOKEN_ID)
 
         return labels
 
@@ -553,7 +554,7 @@ class T5(nn.Module):
         encoder_outputs=None,
     ) -> Seq2SeqLMOutput:
         """
-        frames: B x L_encoder x mel_bins, int64
+        frames: B x L_encoder x mel_bins, float32
         attention_mask: B x L_encoder, int64
             1 for tokens to attend to, 0 for tokens to ignore
         tokens: B x L_decoder, int64
@@ -624,15 +625,15 @@ class T5(nn.Module):
                 )
 
     def _shift_right(self, input_ids):
-        decoder_start_token_id = self.config.decoder_start_token_id
-        pad_token_id = self.config.pad_token_id
+        SOS_TOKEN_ID = self.config.decoder_start_token_id
+        PAD_TOKEN_ID = self.config.pad_token_id
 
-        assert decoder_start_token_id is not None and pad_token_id is not None
+        assert SOS_TOKEN_ID is not None and PAD_TOKEN_ID is not None
         shifted_input_ids = input_ids.new_zeros(input_ids.shape)
         shifted_input_ids[..., 1:] = input_ids[..., :-1].clone()
-        shifted_input_ids[..., 0] = decoder_start_token_id
+        shifted_input_ids[..., 0] = SOS_TOKEN_ID
 
         # replace possible -100 values in labels by `pad_token_id`
-        shifted_input_ids.masked_fill_(shifted_input_ids == -100, pad_token_id)
+        shifted_input_ids.masked_fill_(shifted_input_ids == -100, PAD_TOKEN_ID)
 
         return shifted_input_ids

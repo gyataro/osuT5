@@ -58,7 +58,7 @@ class OszDataset(IterableDataset):
         # [SOS] token + event_tokens + [EOS] token creates N+1 tokens
         # [SOS] token + event_tokens[:-1] creates N target sequence
         # event_tokens[1:] + [EOS] token creates N label sequence
-        self.token_seq_len = tgt_seq_len + 1
+        self.token_seq_len = tgt_seq_len
         self.encoding = sys.getfilesystemencoding()
 
     def _get_audio_and_osu(self, osz_path: str) -> tuple[npt.NDArray, list[str]]:
@@ -275,10 +275,6 @@ class OszDataset(IterableDataset):
         """
         tokens = torch.tensor(sequence["tokens"], dtype=torch.long)
         n = min(self.tgt_seq_len - 1, len(tokens))
-        sos = (
-            torch.ones(1, dtype=tokens.dtype, device=tokens.device)
-            * self.tokenizer.sos_id
-        )
         eos = (
             torch.ones(1, dtype=tokens.dtype, device=tokens.device)
             * self.tokenizer.eos_id
@@ -287,9 +283,8 @@ class OszDataset(IterableDataset):
             torch.ones(self.token_seq_len, dtype=tokens.dtype, device=tokens.device)
             * self.tokenizer.pad_id
         )
-        padded_tokens[0] = sos
-        padded_tokens[1 : n + 1] = tokens[:n]
-        padded_tokens[n + 1 : n + 2] = eos
+        padded_tokens[0:n] = tokens[:n]
+        padded_tokens[n : n + 1] = eos
         sequence["tokens"] = padded_tokens
         return sequence
 
