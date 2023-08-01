@@ -12,7 +12,7 @@ from torch.optim.lr_scheduler import (
 )
 
 from osuT5.model import T5
-from osuT5.dataset import OszDataset
+from osuT5.dataset import OszDataset, OszLoader, OsuParser
 from osuT5.tokenizer import Tokenizer
 
 
@@ -106,9 +106,34 @@ def get_scheduler(optimizer: Optimizer, args: DictConfig) -> LRScheduler:
 
 
 def get_dataloaders(tokenizer: Tokenizer, args: DictConfig) -> dict[str, DataLoader]:
+    loader = OszLoader(
+        args.data.spectrogram.sample_rate,
+        args.data.loader.min_difficulty,
+        args.data.loader.max_difficulty,
+        args.data.loader.mode,
+    )
+    parser = OsuParser()
     dataset = {
-        "train": OszDataset(args.data.train_dataset_path, tokenizer),
-        "test": OszDataset(args.data.test_dataset_path, tokenizer),
+        "train": OszDataset(
+            args.data.train_dataset_path,
+            args.data.spectrogram.sample_rate,
+            args.data.spectrogram.hop_length,
+            args.data.spectrogram.max_seq_len,
+            args.data.spectrogram.max_target_len,
+            loader,
+            parser,
+            tokenizer,
+        ),
+        "test": OszDataset(
+            args.data.test_dataset_path,
+            args.data.spectrogram.sample_rate,
+            args.data.spectrogram.hop_length,
+            args.data.spectrogram.max_seq_len,
+            args.data.spectrogram.max_target_len,
+            loader,
+            parser,
+            tokenizer,
+        ),
     }
 
     dataloaders = {}

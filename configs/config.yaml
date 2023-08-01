@@ -18,21 +18,27 @@ model:
     hop_length: ${data.spectrogram.hop_length}
     n_fft: ${data.spectrogram.n_fft}
     n_mels: ${data.spectrogram.n_mels}
+  overwrite:
+    d_model: ${data.max_seq_len}
   checkpoint_path: ''
   random_init: true
   compile: false
 
 data:
+  train_dataset_path: ''
+  test_dataset_path: ''
   max_seq_len: 512
   max_target_len: 256
   num_workers: 8
-  train_dataset_path: ''
-  test_dataset_path: ''
   spectrogram:
     sample_rate: 16000
     hop_length: 128
     n_fft: 2048
     n_mels: 512
+  loader:
+    min_difficulty: 0
+    max_difficulty: 10
+    mode: 'center'
 
 optim:
   name: adafactor

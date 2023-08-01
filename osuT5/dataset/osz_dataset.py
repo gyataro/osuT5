@@ -12,7 +12,7 @@ from torch.utils.data import IterableDataset
 
 from .osu_parser import OsuParser
 from .osz_loader import OszLoader
-from osuT5.tokenizer import Event, EventType
+from osuT5.tokenizer import Event, EventType, Tokenizer
 
 OSZ_FILE_EXTENSION = ".osz"
 MILISECONDS_PER_SECOND = 1000
@@ -23,29 +23,33 @@ class OszDataset(IterableDataset):
     def __init__(
         self,
         path: str,
-        tokenizer: type,
-        sample_rate: int = 16000,
-        frame_size: int = 128,
-        src_seq_len: int = 512,
-        tgt_seq_len: int = 256,
+        sample_rate: int,
+        frame_size: int,
+        src_seq_len: int,
+        tgt_seq_len: int,
+        loader: OszLoader,
+        parser: OsuParser,
+        tokenizer: Tokenizer,
     ):
         """Manage and process .osz archives.
 
         Attributes:
             path: Location of .osz files to load.
-            tokenizer: Instance of Tokenizer class.
             sample_rate: Sampling rate of audio file (samples/second).
             frame_size: Samples per audio frame (samples/frame).
             src_seq_len: Maximum length of source sequence.
             tgt_seq_len: Maximum length of target sequence.
+            loader: Instance of OszLoader class.
+            parser: Instance of OsuParser class.
+            tokenizer: Instance of Tokenizer class.
         """
         super().__init__()
         self.dataset = np.array(
             glob(f"{path}/**/*{OSZ_FILE_EXTENSION}", recursive=True), dtype=np.string_
         )
         np.random.shuffle(self.dataset)
-        self.loader = OszLoader()
-        self.parser = OsuParser()
+        self.loader = loader
+        self.parser = parser
         self.tokenizer = tokenizer
         self.sample_rate = sample_rate
         self.frame_size = frame_size
