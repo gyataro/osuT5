@@ -37,11 +37,8 @@ def get_config(args: DictConfig) -> T5Config:
 def get_model(args: DictConfig, config: T5Config) -> T5:
     model = T5(config)
 
-    if args.model.checkpoint_path:
-        model.load_state_dict(torch.load(args.model.checkpoint_path))
-
-    with open_dict(args):
-        args.n_all_param = sum([p.nelement() for p in model.parameters()])
+    if args.checkpoint_path:
+        model.load_state_dict(torch.load(args.checkpoint_path))
 
     return model
 
@@ -107,29 +104,29 @@ def get_scheduler(optimizer: Optimizer, args: DictConfig) -> LRScheduler:
 
 def get_dataloaders(tokenizer: Tokenizer, args: DictConfig) -> dict[str, DataLoader]:
     loader = OszLoader(
-        args.data.spectrogram.sample_rate,
-        args.data.loader.min_difficulty,
-        args.data.loader.max_difficulty,
-        args.data.loader.mode,
+        args.model.spectrogram.sample_rate,
+        args.loader.min_difficulty,
+        args.loader.max_difficulty,
+        args.loader.mode,
     )
     parser = OsuParser()
     dataset = {
         "train": OszDataset(
-            args.data.train_dataset_path,
-            args.data.spectrogram.sample_rate,
-            args.data.spectrogram.hop_length,
-            args.data.spectrogram.max_seq_len,
-            args.data.spectrogram.max_target_len,
+            args.train_dataset_path,
+            args.model.spectrogram.sample_rate,
+            args.model.spectrogram.hop_length,
+            args.model.max_seq_len,
+            args.model.max_target_len,
             loader,
             parser,
             tokenizer,
         ),
         "test": OszDataset(
-            args.data.test_dataset_path,
-            args.data.spectrogram.sample_rate,
-            args.data.spectrogram.hop_length,
-            args.data.spectrogram.max_seq_len,
-            args.data.spectrogram.max_target_len,
+            args.test_dataset_path,
+            args.model.spectrogram.sample_rate,
+            args.model.spectrogram.hop_length,
+            args.model.max_seq_len,
+            args.model.max_target_len,
             loader,
             parser,
             tokenizer,
@@ -143,7 +140,7 @@ def get_dataloaders(tokenizer: Tokenizer, args: DictConfig) -> dict[str, DataLoa
         dataloaders[split] = DataLoader(
             dataset[split],
             batch_size=batch_size,
-            num_workers=args.data.num_workers,
+            num_workers=args.dataloader.num_workers,
             pin_memory=True,
             drop_last=False,
             persistent_workers=True,

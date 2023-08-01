@@ -1,0 +1,18 @@
+name: 'google/t5-v1_1-small'
+overwrite:
+  dropout_rate: 0.0
+  d_model: 512
+add_config:
+  is_bf16: false
+  sample_rate: ${..spectrogram.sample_rate}
+  hop_length: ${..spectrogram.hop_length}
+  n_fft: ${..spectrogram.n_fft}
+  n_mels: ${..spectrogram.n_mels}
+
+max_seq_len: 512
+max_target_len: 256
+spectrogram:
+  sample_rate: 16000
+  hop_length: 128
+  n_fft: 2048
+  n_mels: 512

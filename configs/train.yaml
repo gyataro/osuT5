@@ -1,0 +1,50 @@
+defaults:
+  - _self_
+  - model: t5_small
+
+compile: false          # PyTorch 2.0 optimization
+device: gpu             # Training device (cpu/gpu)
+precision: 'no'         # Enable mixed precision
+seed: 42                # Project seed
+
+checkpoint_path: ''     # Project checkpoint directory (to resume training)
+train_dataset_path: ''  # Training dataset directory
+test_dataset_path: ''   # Testing/validation dataset directory
+
+loader:                 # OszLoader settings
+  min_difficulty: 0
+  max_difficulty: 10
+  mode: 'center'
+
+dataloader:             # Dataloader settings
+  num_workers: 8
+
+optim:                  # Optimizer settings
+  name: adafactor
+  base_lr: 2e-2
+  batch_size: 32
+  total_steps: 65536
+  warmup_steps: 10000
+  lr_scheduler: cosine
+  weight_decay: 0.0
+  grad_clip: 1.0
+  grad_acc: 4
+  final_cosine: 1e-5
+
+eval:                   # Evaluation settings 
+  every_steps: 100000
+  steps: 500
+
+checkpoint:             # Checkpoint settings
+  every_steps: 100000
+
+logging:                # Logging settings
+  every_steps: 100
+  grad_l2: true
+  weights_l2: true
+
+hydra:
+  job:
+    chdir: True
+  run:
+    dir: ./logs/${now:%Y-%m-%d}/${now:%H-%M-%S}

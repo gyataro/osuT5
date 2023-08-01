@@ -33,7 +33,7 @@ def maybe_save_checkpoint(accelerator: Accelerator, args: DictConfig):
         args.current_train_step > args.optim.total_steps
         or args.current_train_step % args.checkpoint.every_steps == 0
     ):
-        output_dir = f"checkpoint-{args.mode}-{args.current_train_step}"
+        output_dir = f"checkpoint-{args.current_train_step}"
         accelerator.save_state(output_dir=output_dir)
 
 

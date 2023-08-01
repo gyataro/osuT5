@@ -3,18 +3,17 @@ import torch
 import numpy as np
 import numpy.typing as npt
 from pydub import AudioSegment
-
-from inference.config import Config
+from omegaconf import DictConfig
 
 
 class Preprocessor(object):
-    def __init__(self, config: Config):
+    def __init__(self, args: DictConfig):
         """Preprocess audio data into sequences."""
-        self.frame_seq_len = config.src_seq_len - 1
-        self.frame_size = config.frame_size
-        self.sample_rate = config.sample_rate
+        self.frame_seq_len = args.model.max_seq_len - 1
+        self.frame_size = args.model.spectrogram.hop_length
+        self.sample_rate = args.model.spectrogram.sample_rate
         self.samples_per_sequence = self.frame_seq_len * self.frame_size
-        self.batch_size = config.batch_size
+        self.batch_size = args.batch_size
 
     def load(self, path: str) -> npt.ArrayLike:
         """Load an audio file as audio frames. Convert stereo to mono, normalize.

@@ -512,7 +512,7 @@ class T5(nn.Module):
         Generation:
             Starts with [SOS], ends with [EOS], padding is [PAD] (see Tokenizer)
         """
-        B, _, _ = frames.size()
+        B, _ = frames.size()
         SOS_TOKEN_ID = self.config.decoder_start_token_id
         PAD_TOKEN_ID = self.config.pad_token_id
         EOS_TOKEN_ID = self.config.eos_token_id

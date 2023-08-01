@@ -4,23 +4,23 @@ import torch.nn as nn
 import torch.nn.functional as F
 from tqdm import tqdm
 
-from inference.config import Config
-from utils.tokenizer import Tokenizer
-from utils.event import Event, EventType
+from omegaconf import DictConfig
+from osuT5.tokenizer import Event, EventType, Tokenizer
 
 MILISECONDS_PER_SECOND = 1000
 MILISECONDS_PER_STEP = 10
 
 
 class Pipeline(object):
-    def __init__(self, config: Config, tokenizer: Tokenizer):
+    def __init__(self, args: DictConfig, tokenizer: Tokenizer):
         """Model inference stage that processes sequences."""
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.tokenizer = tokenizer
-        self.batch_size = config.batch_size
-        self.tgt_seq_len = config.tgt_seq_len
-        self.frame_seq_len = config.src_seq_len - 1
-        self.frame_size = config.frame_size
-        self.sample_rate = config.sample_rate
+        self.batch_size = args.batch_size
+        self.tgt_seq_len = args.model.max_target_len
+        self.frame_seq_len = args.model.max_seq_len - 1
+        self.frame_size = args.model.spectrogram.hop_length
+        self.sample_rate = args.model.spectrogram.sample_rate
         self.samples_per_sequence = self.frame_seq_len * self.frame_size
         self.miliseconds_per_sequence = (
             self.samples_per_sequence * MILISECONDS_PER_SECOND / self.sample_rate
@@ -45,19 +45,26 @@ class Pipeline(object):
             n = len(sources)
             unfinished = torch.LongTensor([[1] for _ in range(n)])
             targets = torch.LongTensor([[self.tokenizer.sos_id] for _ in range(n)])
+            targets = targets.to(self.device)
+            sources = sources.to(self.device)
+            encoder_outputs = None
 
             for _ in tqdm(range(self.tgt_seq_len - 1), leave=False):
-                logits = model.forward(sources, targets)
-                logits = logits[:, :, -1]
+                out = model.forward(
+                    frames=sources,
+                    decoder_input_ids=targets,
+                    encoder_outputs=encoder_outputs,
+                )
+                encoder_outputs = out.encoder_outputs
+                logits = out.logits
+                logits = logits[:, -1, :]
                 logits = self._filter(logits, 0.9)
                 probabilities = F.softmax(logits, dim=-1)
                 tokens = torch.multinomial(probabilities, 1)
 
                 # change next tokens of finished sentences to PAD token
-                tokens = tokens.cpu() * unfinished + (self.tokenizer.pad_id) * (
-                    1 - unfinished
-                )
-                targets = torch.cat([targets, tokens], dim=-1)
+                tokens = tokens.cpu() * unfinished + 0 * (1 - unfinished)
+                targets = torch.cat([targets, tokens.to(self.device)], dim=-1)
 
                 # check if any sentence in batch has reached EOS, mark as finished
                 eos_in_sentence = tokens == self.tokenizer.eos_id
@@ -95,7 +102,10 @@ class Pipeline(object):
             elif token == self.tokenizer.eos_id:
                 break
 
-            event = self.tokenizer.decode(token.item())
+            try:
+                event = self.tokenizer.decode(token.item())
+            except:
+                continue
 
             if event.type == EventType.TIME_SHIFT:
                 timestamp = (

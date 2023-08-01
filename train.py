@@ -17,7 +17,7 @@ from osuT5.utils import (
 )
 
 
-@hydra.main(config_path="configs", config_name="config", version_base="1.1")
+@hydra.main(config_path="configs", config_name="train", version_base="1.1")
 def main(args: DictConfig):
     accelerator = Accelerator(
         cpu=args.device == "cpu",
@@ -48,7 +48,7 @@ def main(args: DictConfig):
         model, optimizer, scheduler, train_dataloader, test_dataloader
     )
 
-    if args.model.compile:
+    if args.compile:
         model = torch.compile(model)
 
     with open_dict(args):

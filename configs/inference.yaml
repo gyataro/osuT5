@@ -1,0 +1,18 @@
+defaults:
+  - _self_
+  - model: t5_small
+
+model_path: ''     # Path to trained model
+audio_path: ''     # Path to input audio
+output_path: ''    # Path to output directory
+batch_size: 32     # Sequences per inference batch
+bpm: 120           # Beats per minute of input audio
+offset: 0          # Start of beat, in miliseconds, from the beginning of input audio
+title: ''          # Song title
+artist: ''         # Song artist
+
+hydra:
+  job:
+    chdir: False
+  run:
+    dir: ./logs/${now:%Y-%m-%d}/${now:%H-%M-%S}
