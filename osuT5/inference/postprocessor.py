@@ -8,6 +8,7 @@ import zipfile
 import dataclasses
 from string import Template
 
+from numpy import random
 from omegaconf import DictConfig
 
 from osuT5.tokenizer import Event, EventType
@@ -15,6 +16,7 @@ from osuT5.tokenizer import Event, EventType
 OSZ_FILE_EXTENSION = ".osz"
 OSU_FILE_EXTENSION = ".osu"
 OSU_TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), "template.osu")
+STEPS_PER_MILLISECOND = 0.1
 
 
 @dataclasses.dataclass
@@ -74,18 +76,32 @@ class Postprocessor(object):
         """
 
         hit_object_strings = []
+        prev_timestamp = None
 
         # Convert to .osu format
-        for hit_object, timestamp in zip(events, event_times):
+        for i, (hit_object, timestamp) in enumerate(zip(events, event_times)):
             if len(hit_object) < 3:
+                continue
+
+            if prev_timestamp and timestamp <= prev_timestamp:
                 continue
 
             x = hit_object[0].value
             y = hit_object[1].value
             hit_type = hit_object[2].type
+            new_combo = hit_object[3].value * 4
 
             if hit_type == EventType.CIRCLE:
-                hit_object_strings.append(f"{x},{y},{timestamp},1,0")
+                hit_object_strings.append(f"{x},{y},{timestamp},{1 | new_combo},0")
+                prev_timestamp = timestamp
+
+            elif hit_type == EventType.SPINNER:
+                length = hit_object[4].value
+                end_timestamp = length // STEPS_PER_MILLISECOND
+                hit_object_strings.append(
+                    f"{x},{y},{timestamp},{8 | new_combo},0,{end_timestamp}"
+                )
+                prev_timestamp = end_timestamp
 
             elif hit_type in self.curve_types:
                 curve_type = self.curve_types[hit_type]
@@ -105,8 +121,9 @@ class Postprocessor(object):
                         )
 
                 hit_object_strings.append(
-                    f"{x},{y},{timestamp},2,0,{curve_type}{control_points},{slides}"
+                    f"{x},{y},{timestamp},{2 | new_combo},0,{curve_type}{control_points},{slides}"
                 )
+                prev_timestamp = timestamp
 
         # Write .osu file
         with open(OSU_TEMPLATE_PATH, "r") as tf:

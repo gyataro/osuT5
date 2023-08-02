@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from osuT5.tokenizer import Event, EventType
 
+STEPS_PER_MILLISECOND = 0.1
+
 
 class OsuParser:
     def __init__(self) -> None:
@@ -59,6 +61,10 @@ class OsuParser:
                     slider, time = self._parse_slider(elements)
                     events.append(slider)
                     event_times.append(time)
+                elif type & 8:
+                    spinner, time = self._parse_spinner(elements)
+                    events.append(spinner)
+                    event_times.append(time)
 
         return events, event_times
 
@@ -69,9 +75,10 @@ class OsuParser:
             elements: List of strings extracted from .osu file.
 
         Returns:
-            events: List of events, format: [x, y, circle].
+            events: List of events, format: [x, y, new_combo, circle].
             time: Time when circle is to be hit, in miliseconds from the beginning of the beatmap's audio.
         """
+        new_combo = min(1, int(elements[3]) & 4)
         pos_x = int(elements[0])
         pos_y = int(elements[1])
         time = int(elements[2])
@@ -79,6 +86,7 @@ class OsuParser:
         events = [
             Event(EventType.POINT, pos_x),
             Event(EventType.POINT, pos_y),
+            Event(EventType.NEW_COMBO, new_combo),
             Event(EventType.CIRCLE),
         ]
 
@@ -91,7 +99,7 @@ class OsuParser:
             elements: List of strings extracted from .osu file.
 
         Returns:
-            events: A list of events, format: [x, y, slider_type, curve_points, slides].
+            events: A list of events, format: [x, y, new_combo, slider_type, curve_points, slides].
             time: Time when slider is to be dragged, in miliseconds from the beginning of the beatmap's audio.
         """
         curve_types = {
@@ -101,6 +109,7 @@ class OsuParser:
             "P": EventType.SLIDER_PERFECT_CIRCLE,
         }
 
+        new_combo = min(1, int(elements[3]) & 4)
         pos_x = int(elements[0])
         pos_y = int(elements[1])
         time = int(elements[2])
@@ -108,6 +117,7 @@ class OsuParser:
         events = [
             Event(EventType.POINT, pos_x),
             Event(EventType.POINT, pos_y),
+            Event(EventType.NEW_COMBO, new_combo),
         ]
 
         curve = elements[5].split("|")
@@ -125,3 +135,30 @@ class OsuParser:
         events.append(Event(EventType.SLIDES, slides))
 
         return events, time
+
+    def _parse_spinner(self, elements: list[str]) -> tuple[list[Event], int]:
+        """Parse a slider hit object.
+
+        Args:
+            elements: List of strings extracted from .osu file.
+
+        Returns:
+            events: A list of events, format: [x, y, new_combo, spinner].
+            time: Time when slider is to be dragged, in miliseconds from the beginning of the beatmap's audio.
+        """
+        new_combo = min(1, int(elements[3]) & 4)
+        pos_x = 256
+        pos_y = 192
+        start_time = int(elements[2])
+        end_time = int(elements[5])
+        length = (end_time - start_time) * STEPS_PER_MILLISECOND
+
+        events = [
+            Event(EventType.POINT, pos_x),
+            Event(EventType.POINT, pos_y),
+            Event(EventType.NEW_COMBO, new_combo),
+            Event(EventType.SPINNER),
+            Event(EventType.SPINNER_LENGTH, length),
+        ]
+
+        return events, start_time
