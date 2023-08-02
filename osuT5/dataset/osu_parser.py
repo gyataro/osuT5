@@ -151,7 +151,7 @@ class OsuParser:
         pos_y = 192
         start_time = int(elements[2])
         end_time = int(elements[5])
-        length = (end_time - start_time) * STEPS_PER_MILLISECOND
+        length = round((end_time - start_time) * STEPS_PER_MILLISECOND)
 
         events = [
             Event(EventType.POINT, pos_x),

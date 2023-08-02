@@ -51,5 +51,5 @@ def get_event_ranges() -> list[EventRange]:
         EventRange(EventType.CONTROL_POINT, -256, 768),
         EventRange(EventType.SLIDES, 0, 100),
         EventRange(EventType.SPINNER, 0, 0),
-        EventRange(EventType.SPINNER_LENGTH, 0, 512),
+        EventRange(EventType.SPINNER_LENGTH, 0, 1024),
     ]
