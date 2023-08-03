@@ -32,7 +32,7 @@ def main(args: DictConfig):
     setup_args(args)
 
     config = get_config(args)
-    model = get_model(args, config)
+    model = get_model(config)
     tokenizer = get_tokenizer()
     optimizer = get_optimizer(model, args)
     scheduler = get_scheduler(optimizer, args)
@@ -47,6 +47,9 @@ def main(args: DictConfig):
     ) = accelerator.prepare(
         model, optimizer, scheduler, train_dataloader, test_dataloader
     )
+
+    if args.checkpoint_path:
+        accelerator.load_state(args.checkpoint_path)
 
     if args.compile:
         model = torch.compile(model)
