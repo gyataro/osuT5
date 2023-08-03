@@ -8,7 +8,6 @@ import zipfile
 import dataclasses
 from string import Template
 
-from numpy import random
 from omegaconf import DictConfig
 
 from osuT5.tokenizer import Event, EventType
@@ -88,8 +87,8 @@ class Postprocessor(object):
 
             x = hit_object[0].value
             y = hit_object[1].value
-            hit_type = hit_object[2].type
-            new_combo = hit_object[3].value * 4
+            new_combo = hit_object[2].value * 4
+            hit_type = hit_object[3].type
 
             if hit_type == EventType.CIRCLE:
                 hit_object_strings.append(f"{x},{y},{timestamp},{1 | new_combo},0")
@@ -97,7 +96,7 @@ class Postprocessor(object):
 
             elif hit_type == EventType.SPINNER:
                 length = hit_object[4].value
-                end_timestamp = length // STEPS_PER_MILLISECOND
+                end_timestamp = timestamp + length // STEPS_PER_MILLISECOND
                 hit_object_strings.append(
                     f"{x},{y},{timestamp},{8 | new_combo},0,{end_timestamp}"
                 )
@@ -111,7 +110,7 @@ class Postprocessor(object):
                 if hit_object[-1].type == EventType.SLIDES:
                     slides = hit_object[-1].value
 
-                for i in range(3, len(hit_object) - 1, 2):
+                for i in range(4, len(hit_object) - 1, 2):
                     if (
                         hit_object[i].type == EventType.CONTROL_POINT
                         and hit_object[i + 1].type == EventType.CONTROL_POINT

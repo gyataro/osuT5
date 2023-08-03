@@ -34,12 +34,8 @@ def get_config(args: DictConfig) -> T5Config:
     return config
 
 
-def get_model(args: DictConfig, config: T5Config) -> T5:
+def get_model(config: T5Config) -> T5:
     model = T5(config)
-
-    if args.checkpoint_path:
-        model.load_state_dict(torch.load(args.checkpoint_path))
-
     return model
 
 
