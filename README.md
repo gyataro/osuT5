@@ -1,5 +1,7 @@
 # osuT5
 
+Try the model [here](https://colab.research.google.com/drive/1HJhyPwhf4uBJt4zbk2BwfXoVU_6mpmfW?usp=sharing). Check out a video showcase [here](https://youtu.be/HNlEVQiAvCA).
+
 osuT5 is a transformer-based encoder-decoder that uses spectrogram inputs to generate osu! hit-object output events. The goal of this project is to automatically generate osu! beatmaps from any song.
 
 This project is heavily inspired by Google Magenta's [MT3](https://github.com/magenta/mt3), quoting their [paper](https://magenta.tensorflow.org/transcription-with-transformers):
@@ -14,17 +16,13 @@ The high-level overview of the model's input-output is as follow:
 
 The model uses Mel spectrogram frames as encoder input, with one frame per input position. The model decoder output at each step is a softmax distribution over a discrete, predefined, vocabulary of events. Outputs are sparse, events are only needed when a hit-object occurs, instead of annotating every single audio frame.
 
-## Usage
+## Inference
 
-You can try out the model on [Colab](https://colab.research.google.com/drive/1HJhyPwhf4uBJt4zbk2BwfXoVU_6mpmfW?usp=sharing).
-
-## Training
-
-The instructions below creates a training environment on your local machine. Alternatively, [Kaggle](https://www.kaggle.com/code/gernyataro/osutransformer-public/notebook) and [Colab](https://colab.research.google.com/drive/1V4WwZKlzQfqznFiEgw4lR04mjpriFKCC?usp=sharing) notebooks are provided.
+The instruction below allows you to generate beatmaps on your local machine.
 
 ### 1. Clone the Repository
 
-Clone the repo and create a Python virtual environment.
+Clone the repo and create a Python virtual environment. Activate the virtual environment.
 
 ```sh
 git clone https://github.com/gyataro/osuTransformer.git
@@ -34,9 +32,59 @@ python -m venv .venv
 
 ### 2. Install Dependencies
 
-1. Install [ffmpeg](http://www.ffmpeg.org/). This is required for reading audio files.
-2. Install [PyTorch](https://pytorch.org/get-started/locally/). Pick the latest stable version based on your operating system, your package manager. Select any of the proposed CUDA versions if GPU is present, otherwise select CPU. Run the given command.
-3. Install the remaining Python dependencies.
+Install [ffmpeg](http://www.ffmpeg.org/), [PyTorch](https://pytorch.org/get-started/locally/), and the remaining Python dependencies.
+
+```sh
+pip install -r requirements.txt
+```
+
+### 3. Download Model
+
+Download the latest model from the [release](https://github.com/gyataro/osuT5/releases) section.
+
+### 4. Begin Inference
+
+Run `inference.py` and pass in some arguments to generate beatmaps.
+```
+python -m inference \
+  model_path   [PATH TO DOWNLOADED MODEL] \
+  audio_path   [PATH TO INPUT AUDIO] \
+  output_path  [PATH TO OUTPUT DIRECTORY] \
+  bpm          [BEATS PER MINUTE OF INPUT AUDIO] \
+  offset       [START OF BEAT, IN MILISECONDS, FROM THE BEGINNING OF INPUT AUDIO] \
+  title        [SONG TITLE] \
+  artist       [SONG ARTIST]
+```
+
+Example:
+```
+python -m inference 
+  model_path="./osuT5_model.bin" \ 
+  audio_path="./song.mp3" \
+  output_path="./output" \
+  bpm=120 \
+  offset=0 \
+  title="A Great Song" \
+  artist="A Great Artist"
+```
+
+## Training
+
+The instruction below creates a training environment on your local machine.
+
+### 1. Clone the Repository
+
+Clone the repo and create a Python virtual environment. Activate the virtual environment.
+
+```sh
+git clone https://github.com/gyataro/osuTransformer.git
+cd osuTransformer
+python -m venv .venv
+```
+
+### 2. Install Dependencies
+
+Install [ffmpeg](http://www.ffmpeg.org/), [PyTorch](https://pytorch.org/get-started/locally/), and the remaining Python dependencies.
 
 ```sh
 pip install -r requirements.txt
@@ -52,7 +100,7 @@ kaggle datasets download -d gernyataro/osu-beatmap-dataset
 
 ### 4. Configure Parameters and Begin Training
 
-All configurations are located in `./config/config.yaml`. Begin training by calling `train.py`.
+All configurations are located in `./configs/train.yaml`. Begin training by calling `train.py`.
 
 ```sh
 python train.py
@@ -60,7 +108,10 @@ python train.py
 
 ## Credits
 
-Special thanks to the authors of [nanoT5](https://github.com/PiotrNawrot/nanoT5/tree/main) for their T5 training code and the Hugging Face team for their [tools](https://huggingface.co/docs/transformers/index). 
+Special thanks to:
+1. The authors of [nanoT5](https://github.com/PiotrNawrot/nanoT5/tree/main) for their T5 training code.
+2. Hugging Face team for their [tools](https://huggingface.co/docs/transformers/index). 
+3. The osu! community for the beatmaps.
 
 ## Related Works
 
